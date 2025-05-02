@@ -1,6 +1,25 @@
 import numpy as np
 
 def modulation(signal_type, bit_sequence, sampling_rate):
+    """
+    Generates a modulated signal using the specified modulation type.
+
+    Supported modulation types:
+    - GMSK: Gaussian Minimum Shift Keying
+    - QPSK: Quadrature Phase Shift Keying
+    - QAM16: 16-level Quadrature Amplitude Modulation
+
+    Args:
+        signal_type (str): Type of modulation ("GMSK", "QPSK", or "QAM16").
+        bit_sequence (np.ndarray): Input binary sequence as a 1D NumPy array of 0s and 1s.
+        sampling_rate (int): Number of samples per symbol (oversampling factor). Must be ≥ 0.
+
+    Returns:
+        np.ndarray: Complex-valued modulated signal or real-valued (for GMSK).
+
+    Raises:
+        Exception: If sampling_rate < 0 or if signal_type is invalid.
+    """
     if sampling_rate < 0:
         raise Exception("Signal generation - incorrect value of sampling rate < 0!")
 
