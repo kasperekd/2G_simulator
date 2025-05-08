@@ -1,11 +1,11 @@
 import numpy as np
 
-def modulation(signal_type, bit_sequence, sampling_rate):
+def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, filter_length=4):
     """
     Generates a modulated signal using the specified modulation type.
 
     Supported modulation types:
-    - GMSK: Gaussian Minimum Shift Keying
+    - GMSK: Gaussian Minimum Shift Keying (with Gaussian filter and phase integration)
     - QPSK: Quadrature Phase Shift Keying
     - QAM16: 16-level Quadrature Amplitude Modulation
 
@@ -13,9 +13,11 @@ def modulation(signal_type, bit_sequence, sampling_rate):
         signal_type (str): Type of modulation ("GMSK", "QPSK", or "QAM16").
         bit_sequence (np.ndarray): Input binary sequence as a 1D NumPy array of 0s and 1s.
         sampling_rate (int): Number of samples per symbol (oversampling factor). Must be ≥ 0.
+        bt (float): Bandwidth-time product for GMSK (default: 0.3).
+        filter_length (int): Length of Gaussian filter in symbols (default: 4).
 
     Returns:
-        np.ndarray: Complex-valued modulated signal or real-valued (for GMSK).
+        np.ndarray: Modulated signal (complex-valued for QPSK/QAM16, real-valued for GMSK).
 
     Raises:
         Exception: If sampling_rate < 0 or if signal_type is invalid.
@@ -27,8 +29,20 @@ def modulation(signal_type, bit_sequence, sampling_rate):
     match signal_type:
         case "GMSK":
             modulated_signal = 2 * np.array(bit_sequence) - 1
-            upsample_modulated_signal = np.repeat(modulated_signal, sampling_rate)
-            return upsample_modulated_signal
+
+            upsampled_signal = np.repeat(modulated_signal, sampling_rate)
+
+            t = np.linspace(-filter_length / 2, filter_length / 2, filter_length * sampling_rate)
+            gaussian_filter = np.exp(-(t ** 2) / (2 * (bandwidth_time ** 2)))
+            gaussian_filter /= np.sum(gaussian_filter)
+
+            filtered_signal = np.convolve(upsampled_signal, gaussian_filter, mode = "same")
+
+            phase = np.cumsum(filtered_signal) * (np.pi / (2 * sampling_rate))
+
+            gmsk_signal = np.exp(1j * phase).real
+
+            return gmsk_signal
         
         case "QPSK":
             modulated_signal = 2 * np.array(bit_sequence) - 1
