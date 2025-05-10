@@ -18,32 +18,55 @@ from pydantic import BaseModel, Field, ValidationError
 from typing import Literal, Dict, Any
 from pathlib import Path
 
+class SeedConfig(BaseModel):
+    """Validation Seed for geneartion signal and burst"""
+    seed_enabled: bool = Field(
+        default=True,
+        deprecation="Whether seed for generation is enabled"
+    )
+    number_seed: int = Field(
+        ge=0,
+        description="Seed number in decibels (must be >= 0)."
+    )
+
+class GenerationSignalConfig(BaseModel):
+    count_bit: int = Field(
+        ge=1,
+        description="count of bits in decibels (must be >= 1)."
+    )
+    seed_configuration: SeedConfig
+    sampling_rate: int = Field(
+        ge=1,
+        description="Sampling rate in decibels (must be >= 1)."
+    )
+
 class ChannelConfig(BaseModel):
     """Validation schema for channel parameters."""
-    type: Literal["AWGN", "Rayleigh", "Rician"] = Field(
+    channel_type: Literal["AWGN", "Rayleigh", "Rician"] = Field(
         default="AWGN",
         description="Type of communication channel."
     )
 
 class NoiseConfig(BaseModel):
     """Validation schema for noise parameters."""
-    enabled: bool = Field(
-        default=True,
+    noise_enabled: bool = Field(
+        ...,
         description="Whether noise addition is enabled."
     )
-    snr_db: float = Field(
+    signal_to_noise_ratio_db: float = Field(
         ge=0,
         description="Signal-to-noise ratio in decibels (must be >= 0)."
     )
 
 class SystemConfig(BaseModel):
     """Main validation schema for system configuration."""
-    modulation: Literal["BPSK", "QPSK", "16-QAM", "64-QAM"] = Field(
+    generation_signal_configuration: GenerationSignalConfig
+    modulation_scheme: Literal["BPSK", "QPSK", "16-QAM", "64-QAM"] = Field(
         ...,
         description="Modulation type (required field)."
     )
-    channel: ChannelConfig
-    noise: NoiseConfig
+    channel_configuration: ChannelConfig
+    noise_configuration: NoiseConfig
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.

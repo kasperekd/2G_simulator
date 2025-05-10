@@ -10,7 +10,7 @@ Classes:
 """
 
 import json
-import yaml # type: ignore
+# import yaml # type: ignore
 from pathlib import Path
 from typing import Dict, Any
 
@@ -38,9 +38,9 @@ class ConfigLoader:
             raise FileNotFoundError(f"Config file not found: {path}")
 
         with open(path, 'r', encoding='utf-8') as f:
-            if path.suffix.lower() in ('.yaml', '.yml'):
-                return yaml.safe_load(f)
-            elif path.suffix.lower() == '.json':
+            # if path.suffix.lower() in ('.yaml', '.yml'):
+            #     return yaml.safe_load(f)
+            if path.suffix.lower() == '.json':
                 return json.load(f)
             else:
                 raise ValueError(f"Unsupported file format: {path.suffix}")

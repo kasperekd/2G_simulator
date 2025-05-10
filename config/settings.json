@@ -1,4 +1,12 @@
 {
+  "generation_signal_configuration":{
+    "count_bit": 1024,
+    "seed_configuration":{
+      "seed_enabled": true,
+      "number_seed": 1234
+    },
+    "sampling_rate": 0
+  },
   "modulation_scheme": "QPSK",
   "channel_configuration": {
     "channel_type": "AWGN"
