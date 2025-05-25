@@ -23,10 +23,10 @@ def load_channel_matrix(file_path: str) -> Tuple[np.ndarray, np.ndarray, np.ndar
         mat_data = spio.loadmat(file_path)
         
         # Extract matrices (adjust keys according to your MATLAB variable names)
-        h11 = mat_data['h11']  # Replace with actual key names if different
-        h12 = mat_data['h12']
-        h21 = mat_data['h21']
-        h22 = mat_data['h22']
+        h11 = mat_data['Ht11']  # Replace with actual key names if different
+        h12 = mat_data['Ht12']
+        h21 = mat_data['Ht21']
+        h22 = mat_data['Ht22']
         
         # Validate matrix shapes
         if h11.shape != h12.shape or h11.shape != h21.shape or h11.shape != h22.shape:
