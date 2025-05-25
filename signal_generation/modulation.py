@@ -65,8 +65,8 @@ def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, fil
         
         case "QAM16":
             filter = np.ones(sampling_rate)
-
-            symbols = bit_sequence.reshape(-1, 4)
+            bits = np.array(bit_sequence)
+            symbols = bits.reshape(-1, 4)
 
             i_bits = symbols[:, :2]
             q_bits = symbols[:, 2:]
@@ -91,7 +91,6 @@ def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, fil
             q_filtered = np.convolve(q_oversampling, filter, mode='same')
 
             qam16_signal = i_filtered + 1j * q_filtered
-            print(qam16_signal)
             return qam16_signal
         
         case _:
