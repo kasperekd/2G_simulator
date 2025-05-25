@@ -5,9 +5,9 @@
       "seed_enabled": true,
       "number_seed": 1234
     },
-    "sampling_rate": 0
+    "sampling_rate": 1
   },
-  "modulation_scheme": "QPSK",
+  "modulation_scheme": "QAM16",
   "channel_configuration": {
     "channel_type": "AWGN"
   },
