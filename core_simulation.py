@@ -3,6 +3,8 @@ from signal_generation import bit_generator, modulation
 from channel import qudriga_importer, awgn, simulate_reception
 from analysis import plotter
 
+import matplotlib.pyplot as plt
+
 import numpy as np
 
 if __name__ == "__main__":
@@ -17,18 +19,19 @@ if __name__ == "__main__":
     # 2. Генерация битовой последовательности
     sequence_bit1 = bit_generator.generate_bit(count_bit)
     sequence_bit2 = bit_generator.generate_bit(count_bit)
-    # plotter.plot_line(sequence_bit)
+    # plotter.plot_line(sequence_bit1)
+    # plotter.plot_line(sequence_bit2)
 
     # 3. Модуляция
     modulated_signal_s1 = modulation.modulation(modulation_scheme, sequence_bit1, sampling_rate)
     modulated_signal_s2 = modulation.modulation(modulation_scheme, sequence_bit2, sampling_rate)
     plotter.plot_scatter(modulated_signal_s1)
-    
+    plotter.plot_line(sequence_bit1)
+
     # 4. канал
     channel_path = "D:\\Github\\2G_simulator\\channel\\Ht2_0204_11.mat"
     h11, h12, h21, h22 = qudriga_importer.load_channel_matrix(channel_path)
 
-    plotter.plot_line(sequence_bit1)
 
     # 5. приём сигнала
     rx_ant1, rx_ant2 = simulate_reception.simulate_reception(
@@ -38,6 +41,8 @@ if __name__ == "__main__":
         SNR,
         num_tests=1000
     )
+
+    plotter.visualize_mimo_reception(rx_ant1, rx_ant2, h11, h12, h21, h22)
 
     plotter.plot_scatter(rx_ant1, color="orange")
     plotter.plot_scatter(rx_ant2)

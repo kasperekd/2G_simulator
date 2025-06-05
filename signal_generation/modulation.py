@@ -1,11 +1,13 @@
 import numpy as np
 
-def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, filter_length=4):
+def modulation(signal_type, bit_sequence, sampling_rate):
     """
     Generates a modulated signal using the specified modulation type.
 
     Supported modulation types:
     - GMSK: Gaussian Minimum Shift Keying (with Gaussian filter and phase integration)
+    - 8PSK: 8-Phase Shift Keying - uses 8 equally spaced constellation points on a circle, 
+            encoding 3 bits per symbol with phase shifts of π/4 (45°) between points
     - QPSK: Quadrature Phase Shift Keying
     - QAM16: 16-level Quadrature Amplitude Modulation
 
@@ -13,8 +15,7 @@ def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, fil
         signal_type (str): Type of modulation ("GMSK", "QPSK", or "QAM16").
         bit_sequence (np.ndarray): Input binary sequence as a 1D NumPy array of 0s and 1s.
         sampling_rate (int): Number of samples per symbol (oversampling factor). Must be ≥ 0.
-        bt (float): Bandwidth-time product for GMSK (default: 0.3).
-        filter_length (int): Length of Gaussian filter in symbols (default: 4).
+
 
     Returns:
         np.ndarray: Modulated signal (complex-valued for QPSK/QAM16, real-valued for GMSK).
@@ -28,6 +29,13 @@ def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, fil
     modulated_signal = []
     match signal_type:
         case "GMSK":
+            """
+            bt (float): Bandwidth-time product for GMSK (default: 0.3).
+            filter_length (int): Length of Gaussian filter in symbols (default: 4).
+            """
+            bandwidth_time=0.3
+            filter_length=4
+
             modulated_signal = 2 * np.array(bit_sequence) - 1
 
             upsampled_signal = np.repeat(modulated_signal, sampling_rate)
@@ -44,6 +52,32 @@ def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, fil
 
             return gmsk_signal
         
+        case "8PSK":
+            
+            symbols = np.array([bit_sequence]).reshape(-1, 3)
+
+            symbol_mapping = {
+                (0,0,0): np.exp(1j * 0),
+                (0,0,1): np.exp(1j * np.pi/4),
+                (0,1,1): np.exp(1j * np.pi/2),
+                (0,1,0): np.exp(1j * 3*np.pi/4),
+                (1,1,0): np.exp(1j * np.pi),
+                (1,1,1): np.exp(1j * 5*np.pi/4),
+                (1,0,1): np.exp(1j * 3*np.pi/2),
+                (1,0,0): np.exp(1j * 7*np.pi/4)
+            }
+            
+            signal = np.array([symbol_mapping[tuple(symbol)] for symbol in symbols])
+            
+            upsampled_signal = np.zeros(len(signal) * sampling_rate, dtype=complex)
+            upsampled_signal[::sampling_rate] = signal
+            
+            pulse_shape = np.ones(sampling_rate) 
+            
+            filtered_signal = np.convolve(upsampled_signal, pulse_shape, mode='same')
+            
+            return filtered_signal
+
         case "QPSK":
             modulated_signal = 2 * np.array(bit_sequence) - 1
             
@@ -62,7 +96,7 @@ def modulation(signal_type, bit_sequence, sampling_rate, bandwidth_time=0.3, fil
 
             qpsk_signal = i_filtered + 1j * q_filtered
             return qpsk_signal
-        
+
         case "QAM16":
             filter = np.ones(sampling_rate)
             bits = np.array(bit_sequence)

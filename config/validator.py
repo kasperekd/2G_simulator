@@ -61,7 +61,7 @@ class NoiseConfig(BaseModel):
 class SystemConfig(BaseModel):
     """Main validation schema for system configuration."""
     generation_signal_configuration: GenerationSignalConfig
-    modulation_scheme: Literal["GMSK", "QPSK", "QAM16"] = Field(
+    modulation_scheme: Literal["GMSK", "8PSK", "QPSK", "QAM16"] = Field(
         ...,
         description="Modulation type (required field)."
     )

@@ -117,6 +117,51 @@ def format_plot(title, xlabel, ylabel, show=True, grid=True):
     if show:
         plt.show()
 
+def visualize_mimo_reception(rx1, rx2, h11, h12, h21, h22):
+        plt.figure(figsize=(15, 10))
+        
+        # Каналы
+        plt.subplot()
+
+        plt.subplot(321)
+        plt.plot(np.abs(h11[:, 0]), label='h11')
+        plt.plot(np.abs(h21[:, 0]), label='h21')
+        plt.title('Channel Responses (RX1)')
+        plt.legend()
+        
+        plt.subplot(322)
+        plt.plot(np.abs(h12[:, 0]), label='h12')
+        plt.plot(np.abs(h22[:, 0]), label='h22')
+        plt.title('Channel Responses (RX2)')
+        plt.legend()
+        
+        # Принятые сигналы
+        plt.subplot(323)
+        plt.plot(rx1[0].real, label='Real')
+        plt.plot(rx1[0].imag, label='Imag')
+        plt.title('Received Signal (Antenna 1)')
+        plt.legend()
+        
+        plt.subplot(324)
+        plt.plot(rx2[0].real, label='Real')
+        plt.plot(rx2[0].imag, label='Imag')
+        plt.title('Received Signal (Antenna 2)')
+        plt.legend()
+        
+        # Созвездия сигналов
+        plt.subplot(325)
+        plt.scatter(rx1[0].real, rx1[0].imag, alpha=0.5)
+        plt.title('Constellation (Antenna 1)')
+        plt.grid(True)
+        
+        plt.subplot(326)
+        plt.scatter(rx2[0].real, rx2[0].imag, alpha=0.5)
+        plt.title('Constellation (Antenna 2)')
+        plt.grid(True)
+        
+        plt.tight_layout()
+        plt.show()
+
 # def plot_ber_vs_snr(snr_db, ber_values):
 #     """Plots BER versus SNR on a logarithmic scale.
 

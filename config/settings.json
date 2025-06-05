@@ -1,13 +1,13 @@
 {
   "generation_signal_configuration":{
-    "count_bit": 1024,
+    "count_bit": 999,
     "seed_configuration":{
       "seed_enabled": true,
       "number_seed": 1234
     },
     "sampling_rate": 1
   },
-  "modulation_scheme": "QAM16",
+  "modulation_scheme": "8PSK",
   "channel_configuration": {
     "channel_type": "AWGN"
   },
