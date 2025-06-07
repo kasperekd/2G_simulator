@@ -1,31 +1,60 @@
 import numpy as np
 
-def add_awgn(signal: np.ndarray, snr_db: float) -> np.ndarray:
+def add_awgn(signal: np.ndarray, 
+             snr_db: float,
+             modulation_type: str) -> np.ndarray:
     """
-    Add Additive White Gaussian Noise (AWGN) to the input signal.
+    Add AWGN with proper energy calculations for different modulation types.
     
     Parameters:
+    -----------
     signal : np.ndarray
-        Input signal (can be complex-valued)
+        Input signal (complex-valued)
     snr_db : float
-        Desired signal-to-noise ratio in decibels (dB)
+        Signal-to-noise ratio in dB
+    modulation_type : str
+        Type of modulation ('BPSK', 'QPSK', '8PSK', 'QAM16')
     
     Returns:
-    np.ndarray
-        Noisy signal with AWGN added
-    
-    Notes:
-    For complex signals, the noise is added independently to real and imaginary parts.
-    The SNR is calculated as the ratio of signal power to noise power.
+    --------
+    tuple:
+        - Noisy signal
+        - Dictionary with energy parameters (Eb/N0, Es/N0, etc.)
     """
-    snr_linear = 10 ** (snr_db / 10)
-    power = np.mean(np.abs(signal) ** 2)
-    noise_power = power / snr_linear
+    bits_per_symbol = {
+        'GMSK': 1,
+        'QPSK': 2,
+        '8PSK': 3,
+        'QAM16': 4
+    }
     
-    if np.iscomplexobj(signal):
-        noise = np.sqrt(noise_power/2) * (np.random.randn(*signal.shape) + 
-                1j*np.random.randn(*signal.shape))
-    else:
-        noise = np.sqrt(noise_power) * np.random.randn(*signal.shape)
-        
+    if modulation_type not in bits_per_symbol:
+        raise ValueError(f"Unsupported modulation type: {modulation_type}")
+    
+    k = bits_per_symbol[modulation_type]
+    
+    snr_linear = 10 ** (snr_db / 10)
+    
+    Es = np.mean(np.abs(signal) ** 2)
+
+    Eb = Es / k
+    
+    N0 = Es / (k * snr_linear)
+
+    noise_power = N0 * k
+
+    noise = np.sqrt(noise_power/2) * (np.random.randn(*signal.shape) + 
+            1j*np.random.randn(*signal.shape))
+    
+    # if needs :)
+    # energy_params = {
+    #     'Es': Es,
+    #     'Eb': Eb,
+    #     'N0': N0,
+    #     'Eb/N0': Eb/N0,
+    #     'Es/N0': Es/N0,
+    #     'Eb/N0_dB': 10*np.log10(Eb/N0),
+    #     'Es/N0_dB': 10*np.log10(Es/N0)
+    # }
+    
     return signal + noise

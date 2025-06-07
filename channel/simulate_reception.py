@@ -3,6 +3,7 @@ from scipy.signal import convolve
 from channel.awgn import add_awgn
 
 def simulate_reception(
+    modulation_type: str,
     modulated_signal_s1: np.ndarray,
     modulated_signal_s2: np.ndarray,
     h11: np.ndarray,
@@ -20,6 +21,7 @@ def simulate_reception(
     separately to evaluate performance under different channel conditions.
 
     Args:
+        modulation_type
         modulated_signal_s1: Desired signal waveform (complex-valued array)
         modulated_signal_s2: Interfering signal waveform (complex-valued array)
         h11: Channel impulse responses between TX1 and RX1 (shape: 7 x 1000)
@@ -60,7 +62,7 @@ def simulate_reception(
         s2_h22 = convolve(modulated_signal_s2, h22[:, i], mode='full')
         
         # Combine signals and add noise
-        received_antenna1[i] = add_awgn(s1_h11 + s2_h21, SNR_db)
-        received_antenna2[i] = add_awgn(s1_h12 + s2_h22, SNR_db)
+        received_antenna1[i] = add_awgn(s1_h11 + s2_h21, SNR_db, modulation_type)
+        received_antenna2[i] = add_awgn(s1_h12 + s2_h22, SNR_db, modulation_type)
     
     return received_antenna1, received_antenna2

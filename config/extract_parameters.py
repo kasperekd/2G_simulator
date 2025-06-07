@@ -4,7 +4,7 @@ def extract_config_parameters(config: object) -> Tuple[
     int,          # count_bit
     int,          # sampling_rate
     Optional[int], # number_seed
-    str,          # modulation_scheme
+    str,          # modulation_type
     str,          # channel_type
     Optional[float] # SNR
 ]:
@@ -14,7 +14,7 @@ def extract_config_parameters(config: object) -> Tuple[
         config: Configuration object with nested parameter structures.
             Expected attributes:
             - generation_signal_configuration
-            - modulation_scheme
+            - modulation_type
             - channel_configuration
             - noise_configuration
 
@@ -23,7 +23,7 @@ def extract_config_parameters(config: object) -> Tuple[
         - count_bit: Number of bits to generate
         - sampling_rate: Signal sampling rate in Hz
         - number_seed: Random seed value (None if disabled)
-        - modulation_scheme: Modulation type string
+        - modulation_type: Modulation type string
         - channel_type: Channel model type
         - SNR: Signal-to-noise ratio in dB (None if disabled)
 
@@ -42,7 +42,7 @@ def extract_config_parameters(config: object) -> Tuple[
                  else None)
     
     # Modulation and channel
-    modulation_scheme = config.modulation_scheme
+    modulation_type = config.modulation_type
     channel_type = config.channel_configuration.channel_type
     
     # Optional noise
@@ -56,4 +56,4 @@ def extract_config_parameters(config: object) -> Tuple[
     if sampling_rate <= 0:
         raise ValueError("Sampling rate must be positive")
 
-    return count_bit, sampling_rate, number_seed, modulation_scheme, channel_type, SNR
+    return count_bit, sampling_rate, number_seed, modulation_type, channel_type, SNR

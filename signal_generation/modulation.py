@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def modulation(signal_type, bit_sequence, sampling_rate):
     """
     Generates a modulated signal using the specified modulation type.
