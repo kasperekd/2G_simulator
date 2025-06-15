@@ -45,7 +45,7 @@ def modulation(signal_type, bit_sequence, sampling_rate):
             gaussian_filter = np.exp(-(t ** 2) / (2 * (bandwidth_time ** 2)))
             gaussian_filter /= np.sum(gaussian_filter)
 
-            filtered_signal = np.convolve(upsampled_signal, gaussian_filter, mode = "same")
+            filtered_signal = np.convolve(upsampled_signal, gaussian_filter, mode = "full")
 
             phase = np.cumsum(filtered_signal) * (np.pi / (2 * sampling_rate))
 
@@ -70,8 +70,7 @@ def modulation(signal_type, bit_sequence, sampling_rate):
             
             signal = np.array([symbol_mapping[tuple(symbol)] for symbol in symbols])
             
-            upsampled_signal = np.zeros(len(signal) * sampling_rate, dtype=complex)
-            upsampled_signal[::sampling_rate] = signal
+            upsampled_signal = np.repeat(signal, sampling_rate)
             
             pulse_shape = np.ones(sampling_rate) 
             
@@ -85,15 +84,15 @@ def modulation(signal_type, bit_sequence, sampling_rate):
             filter = np.ones(sampling_rate)
 
             i_signal, q_signal = modulated_signal[0::2], modulated_signal[1::2]
-
+            
             i_oversampling = np.zeros(len(i_signal) * sampling_rate)
             q_oversampling = np.zeros(len(q_signal) * sampling_rate)
 
             i_oversampling[::sampling_rate] = i_signal
             q_oversampling[::sampling_rate] = q_signal
 
-            i_filtered = np.convolve(i_oversampling, filter, mode='same')
-            q_filtered = np.convolve(q_oversampling, filter, mode='same')
+            i_filtered = np.convolve(i_oversampling, filter, mode='full')
+            q_filtered = np.convolve(q_oversampling, filter, mode='full')
 
             qpsk_signal = i_filtered + 1j * q_filtered
             return qpsk_signal
@@ -122,8 +121,8 @@ def modulation(signal_type, bit_sequence, sampling_rate):
             i_oversampling[::sampling_rate] = i_signal
             q_oversampling[::sampling_rate] = q_signal
 
-            i_filtered = np.convolve(i_oversampling, filter, mode='same')
-            q_filtered = np.convolve(q_oversampling, filter, mode='same')
+            i_filtered = np.convolve(i_oversampling, filter, mode='full')
+            q_filtered = np.convolve(q_oversampling, filter, mode='full')
 
             qam16_signal = i_filtered + 1j * q_filtered
             return qam16_signal
