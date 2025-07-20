@@ -9,7 +9,7 @@ import numpy as np
 
 if __name__ == "__main__":
     # 1. Получение данных из конфига
-    config_path = "D:\\Github\\2G_simulator\\config\settings.json"
+    config_path = "./config/settings.json"
     raw_config = loader.ConfigLoader.load(config_path)
     config = validator.SystemConfig(**raw_config)
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # plotter.plot_line(sequence_bit1)
 
     # 4. канал
-    channel_path = "D:\\Github\\2G_simulator\\channel\\Ht2_0204_11.mat"
+    channel_path = "./channel/Ht2_0204_11.mat"
     h11, h12, h21, h22 = qudriga_importer.load_channel_matrix(channel_path)
 
     # 5. приём сигнала

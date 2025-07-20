@@ -7,7 +7,7 @@
     },
     "sampling_rate": 3
   },
-  "modulation_type": "GMSK",
+  "modulation_type": "QPSK",
   "channel_configuration": {
     "channel_type": "AWGN"
   },
