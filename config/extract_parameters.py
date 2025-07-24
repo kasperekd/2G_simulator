@@ -1,35 +1,25 @@
-from typing import Tuple, Optional
+from .validator import SystemConfig
+from typing import Tuple, Optional, List, Any
 
-def extract_config_parameters(config: object) -> Tuple[
+def extract_config_parameters(config: SystemConfig) -> Tuple[
     int,          # count_bit
     int,          # sampling_rate
-    Optional[int], # number_seed
+    Optional[int],# number_seed
     str,          # modulation_type
     str,          # channel_type
-    Optional[float] # SNR
+    Optional[float], # SNR
+    Any           # receiver_config
 ]:
-    """Extracts and validates simulation parameters from configuration object.
+    """Extracts and validates simulation parameters from a configuration object.
 
     Args:
-        config: Configuration object with nested parameter structures.
-            Expected attributes:
-            - generation_signal_configuration
-            - modulation_type
-            - channel_configuration
-            - noise_configuration
+        config: A validated SystemConfig object.
 
     Returns:
-        Tuple containing:
-        - count_bit: Number of bits to generate
-        - sampling_rate: Signal sampling rate in Hz
-        - number_seed: Random seed value (None if disabled)
-        - modulation_type: Modulation type string
-        - channel_type: Channel model type
-        - SNR: Signal-to-noise ratio in dB (None if disabled)
+        Tuple containing all major simulation parameters.
 
     Raises:
-        AttributeError: If required configuration fields are missing
-        ValueError: If any parameter has invalid value
+        ValueError: If any parameter has an invalid value (already handled by Pydantic).
     """
     # Signal generation
     gen_config = config.generation_signal_configuration
@@ -50,10 +40,7 @@ def extract_config_parameters(config: object) -> Tuple[
           if config.noise_configuration.noise_enabled 
           else None)
 
-    # Validation
-    if count_bit <= 0:
-        raise ValueError("Count bit must be positive")
-    if sampling_rate <= 0:
-        raise ValueError("Sampling rate must be positive")
-
-    return count_bit, sampling_rate, number_seed, modulation_type, channel_type, SNR
+    # Receiver config
+    receiver_config = config.receiver_configuration
+    
+    return count_bit, sampling_rate, number_seed, modulation_type, channel_type, SNR, receiver_config

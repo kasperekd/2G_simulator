@@ -1,6 +1,16 @@
 {
+  "simulation_mode": {
+    "mode": "SingleRun",
+    "single_run_ci_db": 10,
+    "monte_carlo": {
+      "ci_db_min": -2,
+      "ci_db_max": 14,
+      "ci_db_step": 2,
+      "num_iterations": 2
+    }
+  },
   "generation_signal_configuration":{
-    "count_bit": 10002,
+    "count_bit": 512,
     "seed_configuration":{
       "seed_enabled": true,
       "number_seed": 1234
@@ -13,6 +23,12 @@
   },
   "noise_configuration": {
     "noise_enabled": true,
-    "signal_to_noise_ratio_db": 50
+    "signal_to_noise_ratio_db": 15
+  },
+  "receiver_configuration": {
+    "receiver_type": "IRC-MLSE",
+    "channel_memory_L": 4,
+    "training_sequence_len": 26,
+    "training_sequence": [1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1]
   }
 }

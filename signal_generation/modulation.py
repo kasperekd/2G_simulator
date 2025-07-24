@@ -1,131 +1,119 @@
 import numpy as np
+from commpy.modulation import PSKModem, QAMModem
 
-
-def modulation(signal_type, bit_sequence, sampling_rate):
+def _modulate_gmsk(bit_sequence, samp_rate):
     """
-    Generates a modulated signal using the specified modulation type.
+    Manual implementation of a simplified GMSK modulator.
+    This linear approximation is suitable for use with an MLSE equalizer.
+    """
+    if len(bit_sequence) == 0:
+        return np.array([]), np.array([])
 
-    Supported modulation types:
-    - GMSK: Gaussian Minimum Shift Keying (with Gaussian filter and phase integration)
-    - 8PSK: 8-Phase Shift Keying - uses 8 equally spaced constellation points on a circle, 
-            encoding 3 bits per symbol with phase shifts of π/4 (45°) between points
-    - QPSK: Quadrature Phase Shift Keying
-    - QAM16: 16-level Quadrature Amplitude Modulation
+    # GMSK is a binary CPM, often approximated as filtered BPSK for MLSE.
+    # Convert bits {0, 1} to symbols {-1, 1}
+    symbols = 2 * np.array(bit_sequence) - 1.0
+    
+    # Symbol indices are simply the bits themselves for a binary modulation
+    symbol_indices = bit_sequence
+
+    # GMSK parameters (typical for GSM)
+    bt_product = 0.3
+    filter_span_in_symbols = 4
+
+    # Upsample the symbols
+    if samp_rate > 1:
+        upsampled = np.zeros(len(symbols) * samp_rate)
+        upsampled[::samp_rate] = symbols
+    else:
+        upsampled = symbols
+
+    # Create the Gaussian filter
+    t = np.arange(-filter_span_in_symbols/2, filter_span_in_symbols/2, 1.0/samp_rate)
+    gaussian_filter = np.exp(-2 * (np.pi**2) * (bt_product**2) / np.log(2) * (t**2))
+    gaussian_filter /= np.sum(gaussian_filter)
+
+    # Convolve with the Gaussian filter to get the frequency pulse
+    frequency_pulse = np.convolve(upsampled, gaussian_filter, mode='same')
+    
+    # Integrate frequency to get phase
+    phase = np.cumsum(frequency_pulse) * (np.pi / (2 * samp_rate))
+    
+    # Modulate phase onto a complex carrier
+    signal = np.exp(1j * phase)
+
+    return signal, symbol_indices
+
+
+def modulate_bits(modem, bit_sequence: np.ndarray, samp_rate: int = 1) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Modulates a bit sequence using a provided commpy modem or manual GMSK.
 
     Args:
-        signal_type (str): Type of modulation ("GMSK", "QPSK", or "QAM16").
-        bit_sequence (np.ndarray): Input binary sequence as a 1D NumPy array of 0s and 1s.
-        sampling_rate (int): Number of samples per symbol (oversampling factor). Must be ≥ 0.
-
+        modem: An instantiated commpy modem object or the string "GMSK".
+        bit_sequence (np.ndarray): The input binary sequence.
+        samp_rate (int): The oversampling factor.
 
     Returns:
-        np.ndarray: Modulated signal (complex-valued for QPSK/QAM16, real-valued for GMSK).
-
-    Raises:
-        Exception: If sampling_rate < 0 or if signal_type is invalid.
+        tuple[np.ndarray, np.ndarray]:
+            - modulated_signal (complex): The complex baseband signal.
+            - symbol_indices (int): The sequence of indices corresponding to the symbols.
     """
-    if sampling_rate < 0:
-        raise Exception("Signal generation - incorrect value of sampling rate < 0!")
+    if modem == "GMSK":
+        return _modulate_gmsk(bit_sequence, samp_rate)
 
-    modulated_signal = []
-    match signal_type:
-        case "GMSK":
-            """
-            bt (float): Bandwidth-time product for GMSK (default: 0.3).
-            filter_length (int): Length of Gaussian filter in symbols (default: 4).
-            """
-            bandwidth_time=0.3
-            filter_length=4
+    # This part is for commpy modems (PSK, QAM)
+    complex_symbols = modem.modulate(bit_sequence)
+    symbol_indices = np.array([np.argmin(np.abs(s - modem.constellation)) for s in complex_symbols])
 
-            modulated_signal = 2 * np.array(bit_sequence) - 1
+    if samp_rate > 1:
+        upsampled = np.zeros(len(complex_symbols) * samp_rate, dtype=np.complex128)
+        upsampled[::samp_rate] = complex_symbols
+        pulse_shape = np.ones(samp_rate) / np.sqrt(samp_rate)
+        signal = np.convolve(upsampled, pulse_shape, mode='same')
+    else:
+        signal = complex_symbols
 
-            upsampled_signal = np.repeat(modulated_signal, sampling_rate)
+    return signal, symbol_indices
 
-            t = np.linspace(-filter_length / 2, filter_length / 2, filter_length * sampling_rate)
-            gaussian_filter = np.exp(-(t ** 2) / (2 * (bandwidth_time ** 2)))
-            gaussian_filter /= np.sum(gaussian_filter)
 
-            filtered_signal = np.convolve(upsampled_signal, gaussian_filter, mode = "full")
-
-            phase = np.cumsum(filtered_signal) * (np.pi / (2 * sampling_rate))
-
-            gmsk_signal = np.exp(1j * phase).real
-
-            return gmsk_signal
+def create_modem(mod_type: str):
+    """
+    Factory function to create and return a commpy modem object or a GMSK identifier.
+    
+    Args:
+        mod_type (str): The modulation type ("QPSK", "8PSK", "16QAM", "GMSK").
         
-        case "8PSK":
-            
-            symbols = np.array([bit_sequence]).reshape(-1, 3)
+    Returns:
+        A commpy modem object or the string "GMSK".
+    """
+    if mod_type == "QPSK":
+        return PSKModem(m=4)
+    elif mod_type == "8PSK":
+        return PSKModem(m=8)
+    elif mod_type == "QAM16":
+        return QAMModem(m=16)
+    elif mod_type == "GMSK":
+        # Since we are implementing GMSK manually
+        return "GMSK"
+    else:
+        raise ValueError(f"Unsupported modulation type for modem factory: {mod_type}")
 
-            symbol_mapping = {
-                (0,0,0): np.exp(1j * 0),
-                (0,0,1): np.exp(1j * np.pi/4),
-                (0,1,1): np.exp(1j * np.pi/2),
-                (0,1,0): np.exp(1j * 3*np.pi/4),
-                (1,1,0): np.exp(1j * np.pi),
-                (1,1,1): np.exp(1j * 5*np.pi/4),
-                (1,0,1): np.exp(1j * 3*np.pi/2),
-                (1,0,0): np.exp(1j * 7*np.pi/4)
-            }
-            
-            signal = np.array([symbol_mapping[tuple(symbol)] for symbol in symbols])
-            
-            upsampled_signal = np.repeat(signal, sampling_rate)
-            
-            pulse_shape = np.ones(sampling_rate) 
-            
-            filtered_signal = np.convolve(upsampled_signal, pulse_shape, mode='same')
-            
-            return filtered_signal
 
-        case "QPSK":
-            modulated_signal = 2 * np.array(bit_sequence) - 1
-            
-            filter = np.ones(sampling_rate)
+def demodulate_symbols(modem, symbol_indices: np.ndarray) -> np.ndarray:
+    """
+    Demodulates a sequence of symbol indices back to bits.
 
-            i_signal, q_signal = modulated_signal[0::2], modulated_signal[1::2]
-            
-            i_oversampling = np.zeros(len(i_signal) * sampling_rate)
-            q_oversampling = np.zeros(len(q_signal) * sampling_rate)
+    Args:
+        modem: The commpy modem object or the string "GMSK".
+        symbol_indices (np.ndarray): The sequence of decoded symbol indices.
 
-            i_oversampling[::sampling_rate] = i_signal
-            q_oversampling[::sampling_rate] = q_signal
+    Returns:
+        np.ndarray: The resulting bit sequence.
+    """
+    if modem == "GMSK":
+        # For our BPSK-like GMSK, the symbol indices are the bits themselves.
+        return symbol_indices
 
-            i_filtered = np.convolve(i_oversampling, filter, mode='full')
-            q_filtered = np.convolve(q_oversampling, filter, mode='full')
-
-            qpsk_signal = i_filtered + 1j * q_filtered
-            return qpsk_signal
-
-        case "QAM16":
-            filter = np.ones(sampling_rate)
-            bits = np.array(bit_sequence)
-            symbols = bits.reshape(-1, 4)
-
-            i_bits = symbols[:, :2]
-            q_bits = symbols[:, 2:]
-
-            amplitude = {
-                (0, 0): -3,
-                (0, 1): -1,
-                (1, 0): 1,
-                (1, 1): 3
-            }
-
-            i_signal = np.array([amplitude[tuple(bits)] for bits in i_bits])
-            q_signal = np.array([amplitude[tuple(bits)] for bits in q_bits])
-
-            i_oversampling = np.zeros(len(i_signal) * sampling_rate)
-            q_oversampling = np.zeros(len(q_signal) * sampling_rate)
-
-            i_oversampling[::sampling_rate] = i_signal
-            q_oversampling[::sampling_rate] = q_signal
-
-            i_filtered = np.convolve(i_oversampling, filter, mode='full')
-            q_filtered = np.convolve(q_oversampling, filter, mode='full')
-
-            qam16_signal = i_filtered + 1j * q_filtered
-            return qam16_signal
-        
-        case _:
-            raise Exception("Signal generation - type of modulation is incorrectly specified!")
+    # For commpy modems
+    complex_symbols = modem.constellation[symbol_indices]
+    return modem.demodulate(complex_symbols, demod_type='hard')
