@@ -1,5 +1,5 @@
 from config import loader, validator, extract_parameters
-from signal_generation import modulation
+from signal_generation import modulation, bit_generator
 from channel import qudriga_importer, awgn
 from analysis import plotter, metrics
 from receiver import channel_estimator, irc_combiner, viterbi
@@ -26,20 +26,24 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     N_ts = rx_config.training_sequence_len
 
     receiver_constellation = get_receiver_constellation(mod_type)
-    bits_per_symbol = int(np.log2(len(receiver_constellation)))
+    bits_per_symbol = 1 if mod_type in ["BPSK", "GMSK"] else int(np.log2(len(receiver_constellation)))
 
     # --- Signal Generation ---
-    user1_data_bits = np.random.randint(0, 2, count_bit)
+    # Нужны повторяемые данные
+    # user1_data_bits = np.random.randint(0, 2, count_bit)
+    user1_data_bits = bit_generator.generate_bit(count_bit, number_seed= 10)
+
     ts_symbols = receiver_constellation[np.random.randint(0, len(receiver_constellation), N_ts)]
     ts_symbols = np.array(rx_config.training_sequence, dtype=np.complex128)
     s1_data_modulated, s1_data_symbol_indices = modulation.modulate_bits(mod_type, user1_data_bits, samp_rate)
     s1_modulated = np.concatenate([ts_symbols, s1_data_modulated])
     
     # Interferer generation with C/I scaling
-    interferer_total_bits = len(s1_modulated) * (bits_per_symbol if isinstance(mod_type, object) else 1)
-    interferer_total_bits = len(s1_modulated) * (bits_per_symbol if isinstance(mod_type, str) else 1)
-    
-    interferer_bits = np.random.randint(0, 2, interferer_total_bits)
+    interferer_total_bits = len(s1_modulated) * bits_per_symbol
+     # Нужны повторяемые данные
+    # interferer_bits = np.random.randint(0, 2, interferer_total_bits)
+    interferer_bits = bit_generator.generate_bit(interferer_total_bits, number_seed = 125)
+
     s2_modulated, _ = modulation.modulate_bits(mod_type, interferer_bits, samp_rate)
     s2_modulated = s2_modulated[:len(s1_modulated)]
     interference_power = 1 / (10**(ci_db / 10))

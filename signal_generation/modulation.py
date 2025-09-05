@@ -2,7 +2,7 @@ import numpy as np
 
 def get_constellation(signal_type):
     if signal_type == "GMSK" or signal_type == "BPSK":
-        return np.float64(np.array([-1, 1]))
+        return np.complex128(np.array([-1, 1]))
 
     # elif signal_type == "8PSK":
     #     # 8 точек равномерно на окружности с шагом π/4
