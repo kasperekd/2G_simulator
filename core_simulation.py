@@ -59,7 +59,6 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     rx_ant1_noisy = awgn.add_awgn(s1_conv_ant1 + s2_conv_ant1, snr_db, mod_type)
     rx_ant2_noisy = awgn.add_awgn(s1_conv_ant2 + s2_conv_ant2, snr_db, mod_type)
     rx_matrix = np.vstack([rx_ant1_noisy, rx_ant2_noisy])
-    rx_matrix = np.vstack([s1_modulated, s2_modulated])
     
     # --- Receiver Processing ---
     ts_rx_len = N_ts + L - 1
