@@ -10,14 +10,14 @@
     }
   },
   "generation_signal_configuration":{
-    "count_bit": 512,
+    "count_bit": 513,
     "seed_configuration":{
       "seed_enabled": true,
       "number_seed": 1234
     },
-    "sampling_rate": 3
+    "sampling_rate": 1
   },
-  "modulation_type": "QPSK",
+  "modulation_type": "BPSK",
   "channel_configuration": {
     "channel_type": "AWGN"
   },
@@ -27,7 +27,7 @@
   },
   "receiver_configuration": {
     "receiver_type": "IRC-MLSE",
-    "channel_memory_L": 4,
+    "channel_memory_L": 7,
     "training_sequence_len": 26,
     "training_sequence": [1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1]
   }

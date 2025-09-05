@@ -13,7 +13,7 @@ def add_awgn(signal: np.ndarray,
     snr_db : float
         Signal-to-noise ratio in dB
     modulation_type : str
-        Type of modulation ('BPSK', 'QPSK', '8PSK', 'QAM16')
+        Type of modulation ('BPSK', 'GMSK', 'QPSK', '8PSK', 'QAM16')
     
     Returns:
     --------
@@ -22,6 +22,7 @@ def add_awgn(signal: np.ndarray,
         - Dictionary with energy parameters (Eb/N0, Es/N0, etc.)
     """
     bits_per_symbol = {
+        'BPSK': 1,
         'GMSK': 1,
         'QPSK': 2,
         '8PSK': 3,
@@ -37,7 +38,7 @@ def add_awgn(signal: np.ndarray,
     
     Es = np.mean(np.abs(signal) ** 2)
 
-    Eb = Es / k
+    # Eb = Es / k
     
     N0 = Es / (k * snr_linear)
 

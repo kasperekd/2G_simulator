@@ -130,7 +130,7 @@ class SimulationModeConfig(BaseModel):
         description="C/I value in dB for the SingleRun mode."
     )
     monte_carlo: MonteCarloConfig
-
+    
 
 class SystemConfig(BaseModel):
     """Main validation schema for the entire system configuration."""

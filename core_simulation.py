@@ -12,10 +12,8 @@ from tqdm import tqdm
 
 def get_receiver_constellation(mod_type: str) -> np.ndarray:
     """Returns the complex constellation for the receiver's Viterbi logic."""
-    if mod_type == "GMSK":
-        return np.array([-1.0, 1.0])
-    temp_modem = modulation.create_modem(mod_type)
-    return temp_modem.constellation
+    temp_modem = modulation.get_constellation(mod_type)
+    return temp_modem
 
 def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     """
@@ -26,21 +24,23 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     count_bit, samp_rate, _, mod_type, _, _, rx_config = extract_parameters.extract_config_parameters(config)
     L = rx_config.channel_memory_L
     N_ts = rx_config.training_sequence_len
-    modem = modulation.create_modem(mod_type)
+
     receiver_constellation = get_receiver_constellation(mod_type)
     bits_per_symbol = int(np.log2(len(receiver_constellation)))
 
     # --- Signal Generation ---
     user1_data_bits = np.random.randint(0, 2, count_bit)
-    # ts_symbols = receiver_constellation[np.random.randint(0, len(receiver_constellation), N_ts)]
+    ts_symbols = receiver_constellation[np.random.randint(0, len(receiver_constellation), N_ts)]
     ts_symbols = np.array(rx_config.training_sequence, dtype=np.complex128)
-    s1_data_modulated, s1_data_symbol_indices = modulation.modulate_bits(modem, user1_data_bits, samp_rate)
+    s1_data_modulated, s1_data_symbol_indices = modulation.modulate_bits(mod_type, user1_data_bits, samp_rate)
     s1_modulated = np.concatenate([ts_symbols, s1_data_modulated])
     
     # Interferer generation with C/I scaling
-    interferer_total_bits = len(s1_modulated) * (bits_per_symbol if isinstance(modem, object) else 1)
+    interferer_total_bits = len(s1_modulated) * (bits_per_symbol if isinstance(mod_type, object) else 1)
+    interferer_total_bits = len(s1_modulated) * (bits_per_symbol if isinstance(mod_type, str) else 1)
+    
     interferer_bits = np.random.randint(0, 2, interferer_total_bits)
-    s2_modulated, _ = modulation.modulate_bits(modem, interferer_bits, samp_rate)
+    s2_modulated, _ = modulation.modulate_bits(mod_type, interferer_bits, samp_rate)
     s2_modulated = s2_modulated[:len(s1_modulated)]
     interference_power = 1 / (10**(ci_db / 10))
     s2_modulated *= np.sqrt(interference_power)
@@ -59,7 +59,8 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     rx_ant1_noisy = awgn.add_awgn(s1_conv_ant1 + s2_conv_ant1, snr_db, mod_type)
     rx_ant2_noisy = awgn.add_awgn(s1_conv_ant2 + s2_conv_ant2, snr_db, mod_type)
     rx_matrix = np.vstack([rx_ant1_noisy, rx_ant2_noisy])
-
+    rx_matrix = np.vstack([s1_modulated, s2_modulated])
+    
     # --- Receiver Processing ---
     ts_rx_len = N_ts + L - 1
     rx_ts_part = rx_matrix[:, :ts_rx_len]
@@ -77,7 +78,7 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     decoded_symbol_indices = viterbi.mlse_viterbi_decode(y_hat_data, S_n, L, receiver_constellation)
     
     # --- BER Calculation ---
-    decoded_bits = modulation.demodulate_symbols(modem, decoded_symbol_indices)
+    decoded_bits = modulation.demodulate_symbols(mod_type, decoded_symbol_indices, samp_rate)
     decoded_bits = decoded_bits[:len(user1_data_bits)]
     ber = metrics.calculate_ber(user1_data_bits, decoded_bits)
     
@@ -117,7 +118,7 @@ def main():
         for receiver_type in ["MRC-MLSE", "IRC-MLSE"]:
             print(f"\n--- Testing Receiver: {receiver_type} ---")
             config.receiver_configuration.receiver_type = receiver_type
-            config.generation_signal_configuration.seed_configuration.number_seed = 42
+            # config.generation_signal_configuration.seed_configuration.number_seed = 42
             ber = run_single_iteration(config, snr_db, mode_config.single_run_ci_db, show_plots=True)
             print(f"\n--- Result for {receiver_type} ---")
             print(f"Bit Error Rate (BER): {ber:.6f}\n")
