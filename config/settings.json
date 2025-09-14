@@ -1,16 +1,16 @@
 {
   "simulation_mode": {
-    "mode": "SingleRun",
+    "mode": "MonteCarlo",
     "single_run_ci_db": 10,
     "monte_carlo": {
-      "ci_db_min": -2,
+      "ci_db_min": -14,
       "ci_db_max": 14,
       "ci_db_step": 2,
       "num_iterations": 2
     }
   },
   "generation_signal_configuration":{
-    "count_bit": 513,
+    "count_bit": 2048,
     "seed_configuration":{
       "seed_enabled": true,
       "number_seed": 1234

@@ -36,7 +36,7 @@ def get_constellation(signal_type):
 #         t = np.linspace(-self.filter_length / 2, self.filter_length / 2, self.filter_length * self.sampling_rate)
 #         gaussian_filter = np.exp(-(t ** 2) / (2 * (self.bt ** 2)))
 #         gaussian_filter /= np.sum(gaussian_filter)
-#         filtered_signal = np.convolve(upsampled_signal, gaussian_filter, mode="full")
+#         filtered_signal = np.convolve(upsampled_signal, gaussian_filter, mode="valid")
 #         phase = np.cumsum(filtered_signal) * (np.pi / (2 * self.sampling_rate))
 #         gmsk_signal = np.exp(1j * phase).real
 #         return gmsk_signal
@@ -54,7 +54,7 @@ class BPSK:
         modulated_signal = 2 * np.array(bit_sequence) - 1
         upsampled_signal = np.repeat(modulated_signal, self.sampling_rate)
         pulse_shape = np.ones(self.sampling_rate) / np.sqrt(self.sampling_rate)
-        bpsk_signal = np.convolve(upsampled_signal, pulse_shape, mode='same')
+        bpsk_signal = np.convolve(upsampled_signal, pulse_shape, mode='valid')
 
         # Индексы символов в созвездии (0 для -1, 1 для 1)
         symbol_indices = (modulated_signal > 0).astype(int)
@@ -111,8 +111,8 @@ class BPSK:
 #         q_oversampling = np.zeros(len(q_signal) * self.sampling_rate)
 #         i_oversampling[::self.sampling_rate] = i_signal
 #         q_oversampling[::self.sampling_rate] = q_signal
-#         i_filtered = np.convolve(i_oversampling, filter, mode='full')
-#         q_filtered = np.convolve(q_oversampling, filter, mode='full')
+#         i_filtered = np.convolve(i_oversampling, filter, mode='valid')
+#         q_filtered = np.convolve(q_oversampling, filter, mode='valid')
 #         qpsk_signal = i_filtered + 1j * q_filtered
 #         return qpsk_signal
 

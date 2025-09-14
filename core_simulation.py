@@ -9,6 +9,7 @@ import concurrent.futures
 import numpy as np
 from scipy.signal import convolve
 from tqdm import tqdm
+# import matplotlib.pyplot as plt
 
 def get_receiver_constellation(mod_type: str) -> np.ndarray:
     """Returns the complex constellation for the receiver's Viterbi logic."""
@@ -56,10 +57,10 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     h_true_user1 = np.array([h11[:L, channel_idx], h12[:L, channel_idx]])
     h_true_user2 = np.array([h21[:L, channel_idx], h22[:L, channel_idx]])
 
-    s1_conv_ant1 = convolve(s1_modulated, h_true_user1[0,:], mode='full')
-    s1_conv_ant2 = convolve(s1_modulated, h_true_user1[1,:], mode='full')
-    s2_conv_ant1 = convolve(s2_modulated, h_true_user2[0,:], mode='full')
-    s2_conv_ant2 = convolve(s2_modulated, h_true_user2[1,:], mode='full')
+    s1_conv_ant1 = convolve(s1_modulated, h_true_user1[0,:], mode='valid')
+    s1_conv_ant2 = convolve(s1_modulated, h_true_user1[1,:], mode='valid')
+    s2_conv_ant1 = convolve(s2_modulated, h_true_user2[0,:], mode='valid')
+    s2_conv_ant2 = convolve(s2_modulated, h_true_user2[1,:], mode='valid')
     rx_ant1_noisy = awgn.add_awgn(s1_conv_ant1 + s2_conv_ant1, snr_db, mod_type)
     rx_ant2_noisy = awgn.add_awgn(s1_conv_ant2 + s2_conv_ant2, snr_db, mod_type)
     rx_matrix = np.vstack([rx_ant1_noisy, rx_ant2_noisy])
@@ -67,8 +68,15 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     # --- Receiver Processing ---
     ts_rx_len = N_ts + L - 1
     rx_ts_part = rx_matrix[:, :ts_rx_len]
+    # print(f"rx ts part:\n {rx_ts_part}")
+    '''Подаём нашу импульсную характеристику напрямую на оценку канала, чтобы проверить её работу'''
+    # h1_est = channel_estimator.estimate_channel_ls(convolve(h_true_user1[0, :], ts_symbols, mode='full'), ts_symbols, L)
+    # h2_est = channel_estimator.estimate_channel_ls(convolve(h_true_user2[0, :], ts_symbols, mode='full'), ts_symbols, L)
+
+    '''Вычисление оценки канала'''
     h1_est = channel_estimator.estimate_channel_ls(rx_ts_part[0, :], ts_symbols, L)
     h2_est = channel_estimator.estimate_channel_ls(rx_ts_part[1, :], ts_symbols, L)
+    
     h_est_matrix = np.vstack([h1_est, h2_est])
     Q_est = np.eye(2)
     if rx_config.receiver_type == "IRC-MLSE":
