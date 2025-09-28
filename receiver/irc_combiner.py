@@ -56,7 +56,12 @@ def calculate_irc_parameters(rx_signal_matrix: np.ndarray, h_matrix: np.ndarray,
     for i in range(num_antennas):
         irc_filter = np.conj(np.flip(g_matrix[i, :]))
         y_hat += convolve(rx_signal_matrix[i, :], irc_filter, mode='full')
-        
+
+    '''
+    ----------------We need DOWNRATE for y_hat----------------!!!
+    If we have sample rate > 1, we need made this after stability MLSE
+    '''
+
     # Calculate S_n, the effective channel autocorrelation after IRC
     S_n_full = np.zeros(2*L - 1, dtype=np.complex128)
     for i in range(num_antennas):

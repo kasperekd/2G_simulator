@@ -82,35 +82,6 @@ class ReceiverConfig(BaseModel):
         if 'training_sequence_len' in values.data and len(v) != values.data['training_sequence_len']:
             raise ValueError('Length of training_sequence must match training_sequence_len')
         return v
-
-
-class SystemConfig(BaseModel):
-    """Main validation schema for the entire system configuration."""
-    generation_signal_configuration: GenerationSignalConfig
-    modulation_type: Literal["GMSK", "8PSK", "QPSK", "QAM16"] = Field(
-        ...,
-        description="Modulation type (BPSK is recommended for this MLSE setup)."
-    )
-    channel_configuration: ChannelConfig
-    noise_configuration: NoiseConfig
-    receiver_configuration: ReceiverConfig
-
-def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
-    """Validates a configuration dictionary against the schema.
-
-    Args:
-        config_data (Dict[str, Any]): Dictionary containing config values.
-
-    Returns:
-        SystemConfig: A validated configuration object.
-
-    Raises:
-        ValueError: If validation fails, with a detailed error message.
-    """
-    try:
-        return SystemConfig(**config_data)
-    except ValidationError as e:
-        raise ValueError(f"Config validation failed:\n{e.json(indent=2)}")
     
 class MonteCarloConfig(BaseModel):
     """Validation schema for Monte Carlo simulation parameters."""
@@ -131,7 +102,6 @@ class SimulationModeConfig(BaseModel):
     )
     monte_carlo: MonteCarloConfig
     
-
 class SystemConfig(BaseModel):
     """Main validation schema for the entire system configuration."""
     simulation_mode: SimulationModeConfig
@@ -140,3 +110,20 @@ class SystemConfig(BaseModel):
     channel_configuration: ChannelConfig
     noise_configuration: NoiseConfig
     receiver_configuration: ReceiverConfig
+
+def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
+    """Validates a configuration dictionary against the schema.
+
+    Args:
+        config_data (Dict[str, Any]): Dictionary containing config values.
+
+    Returns:
+        SystemConfig: A validated configuration object.
+
+    Raises:
+        ValueError: If validation fails, with a detailed error message.
+    """
+    try:
+        return SystemConfig(**config_data)
+    except ValidationError as e:
+        raise ValueError(f"Config validation failed:\n{e.json(indent=2)}")
