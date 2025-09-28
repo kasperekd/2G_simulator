@@ -76,9 +76,9 @@ def make_start(Lh: int, symbols: np.array) -> int:
 
     start = 0
     while start_not_found:
-        start += 1
         if sum(symbols[start, :] == start_symbols) == Lh:
             start_not_found = 0
+        start += 1
 
     return start
 
@@ -157,16 +157,16 @@ def make_next(symbols: np.array) -> list[list[int]]:
         [[1, 2], [3, 0], [1, 2], [3, 0]]
     """
     next_s = []
-    states, maxsum = np.size(symbols) # states - строки, maxsum - столбец
-    search_matrix = symbols[:, 2,maxsum]
+    states, maxsum = symbols.shape # states - строки, maxsum - столбец
+    search_matrix = symbols[:, 1:maxsum]
     maxsum -= 1
     for this_state in range(states):
         search_vector = symbols[this_state, :maxsum]
         k = 0
         for search in range(states):
             if (sum(search_matrix[search,:]==search_vector)==maxsum):
-                k+=1
                 next_s[this_state,k] = search
+                k+=1
                 if k > 2:
                     return ValueError("identified too many next states")
     return next_s
@@ -196,11 +196,11 @@ def make_previous(symbols: np.array) -> list[list[int]]:
         [[2, 3], [0, 1], [2, 3], [0, 1]]
     """
     previous_s = []
-    states, maxsum = np.size(symbols)
+    states, maxsum = symbols.shape
     maxsum -= 1
     search_matrix = symbols[:, :maxsum]
     for this_state in range(states):
-        search_vector = symbols[this_state, 2:maxsum + 1]
+        search_vector = symbols[this_state, 1:maxsum + 1]
         k = 0
         for search in range(states):
             if (sum(search_matrix[search,:]==search_vector)==maxsum):
@@ -209,3 +209,25 @@ def make_previous(symbols: np.array) -> list[list[int]]:
                 if k > 2:
                     return ValueError("identified too many next states")
     return previous_s
+
+def make_increment(symbols: np.array, next: np.array, Rhh: np.array):
+    """
+    Calculate increments linked to state transitions given symbols, next states and channel vector.
+
+    Args:
+        symbols (np.array): 2D array (M x Lh+1) symbol sequences for M states.
+        next_states (np.array): 2D array (M x 2) next states indices for each state.
+        Rhh (np.array): 1D array with channel impulse response coefficients, length Lh.
+
+    Returns:
+        np.array: 2D array (M x M) increment values for state transitions.
+    """
+    M, Lh = np.size[symbols]
+    increment = np.zeros(M)
+    Rhh_col = Rhh[1:Lh].reshape(-1, 1)
+    for n in range(M):
+        m = next[n, 1]
+        increment[n, m] = np.real(np.conj(symbols[m, 1]) @ symbols[n, :] @ Rhh_col)
+        m = next[n, 2]
+        increment[n, m] = np.real(np.conj(symbols[m, 1]) @ symbols[n, :] @ Rhh_col)
+    return increment

@@ -80,11 +80,11 @@ def estimate_channel_corr(rx_signal_on_ts: np.ndarray, train_seq: np.ndarray, Lh
     zeros = np.zeros(5, dtype=train_seq.dtype)
     tseq_e = np.concatenate([zeros, tseq_c, zeros])
 
-    v = np.correlate(rx_signal_on_ts, tseq_e, mode='full')
-                                # np.conj(tseq_c[::-1])
+    v = np.correlate(rx_signal_on_ts, np.conj(tseq_c[::-1]), mode='full')
+                                # tseq_e
     energy = np.abs(v) ** 2
 
-    L = OSR * Lh
+    L = OSR * 2 * Lh
     window_energy = np.array([np.sum(energy[m: m + L]) for m in range(len(energy) - L + 1)])
 
     m_max = np.argmax(window_energy)
