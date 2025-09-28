@@ -84,7 +84,7 @@ def estimate_channel_corr(rx_signal_on_ts: np.ndarray, train_seq: np.ndarray, Lh
                                 # np.conj(tseq_c[::-1])
     energy = np.abs(v) ** 2
 
-    L = OSR * 1.8 * Lh
+    L = OSR * Lh
     window_energy = np.array([np.sum(energy[m: m + L]) for m in range(len(energy) - L + 1)])
 
     m_max = np.argmax(window_energy)
