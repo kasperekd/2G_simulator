@@ -74,11 +74,11 @@ def make_start(Lh: int, symbols: np.array) -> int:
     else:
         return ValueError(f"there are no states for a given Lh={Lh}")
 
-    start = 0
+    start = -1
     while start_not_found:
-        if sum(symbols[start, :] == start_symbols) == Lh:
-            start_not_found = 0
         start += 1
+        if sum(symbols[start, :Lh] == start_symbols) == Lh:
+            start_not_found = 0
 
     return start
 
@@ -131,7 +131,6 @@ def make_stop(Lh: int, symbols: np.array) -> list[int]:
         index += 1
     return stop
 
-
 def make_next(symbols: np.array) -> list[list[int]]:
     """
     Create a lookup table mapping each present state to its legal next states.
@@ -156,19 +155,22 @@ def make_next(symbols: np.array) -> list[list[int]]:
         >>> make_next(symbols)
         [[1, 2], [3, 0], [1, 2], [3, 0]]
     """
-    next_s = []
     states, maxsum = symbols.shape # states - строки, maxsum - столбец
+    # print(f'states and maxsum = {states} and {maxsum}')
+    next_s = np.zeros((states, 2), dtype=int)
     search_matrix = symbols[:, 1:maxsum]
+    # print(f'serch_matrix:\n {search_matrix}')
     maxsum -= 1
     for this_state in range(states):
         search_vector = symbols[this_state, :maxsum]
-        k = 0
+        print(f'search_vector:\n {search_vector}')
+        k = -1
         for search in range(states):
             if (sum(search_matrix[search,:]==search_vector)==maxsum):
-                next_s[this_state,k] = search
                 k+=1
                 if k > 2:
                     return ValueError("identified too many next states")
+                next_s[this_state,k] = search
     return next_s
 
 def make_previous(symbols: np.array) -> list[list[int]]:
@@ -195,8 +197,8 @@ def make_previous(symbols: np.array) -> list[list[int]]:
         >>> make_previous(symbols)
         [[2, 3], [0, 1], [2, 3], [0, 1]]
     """
-    previous_s = []
     states, maxsum = symbols.shape
+    previous_s = np.zeros((states, 2), dtype=int)
     maxsum -= 1
     search_matrix = symbols[:, :maxsum]
     for this_state in range(states):
@@ -204,8 +206,8 @@ def make_previous(symbols: np.array) -> list[list[int]]:
         k = 0
         for search in range(states):
             if (sum(search_matrix[search,:]==search_vector)==maxsum):
-                k += 1
                 previous_s[this_state,k] = search
+                k += 1
                 if k > 2:
                     return ValueError("identified too many next states")
     return previous_s
@@ -222,12 +224,83 @@ def make_increment(symbols: np.array, next: np.array, Rhh: np.array):
     Returns:
         np.array: 2D array (M x M) increment values for state transitions.
     """
-    M, Lh = np.size[symbols]
-    increment = np.zeros(M)
-    Rhh_col = Rhh[1:Lh].reshape(-1, 1)
+    M, Lh = symbols.shape
+    increment = np.zeros((M, M))
+    Rhh_col = Rhh[1:Lh+1].reshape(-1, 1)
     for n in range(M):
+        m = next[n, 0]
+        increment[n, m] = np.real(np.conj(symbols[m, 0]) * (symbols[n, :] @ Rhh_col))
         m = next[n, 1]
-        increment[n, m] = np.real(np.conj(symbols[m, 1]) @ symbols[n, :] @ Rhh_col)
-        m = next[n, 2]
-        increment[n, m] = np.real(np.conj(symbols[m, 1]) @ symbols[n, :] @ Rhh_col)
+        increment[n, m] = np.real(np.conj(symbols[m, 0]) * (symbols[n, :] @ Rhh_col))
     return increment
+
+'''
+    Мини пример использования перехода по ветвям с вычислением ошибки
+    пока что без использование матрицы INCREMENT и SURVIVOR путей
+'''
+if __name__ == '__main__':
+
+    Lh = 3  # Память канала, даёт 8 состояний (2^(Lh+1))
+    Rhh = np.array([1.0, 0.9, 0.8, 0.7, 0.6])#([1.0, 0.5, 0.25, 0.125, 0.0625])
+
+    # 1. Создаем все символы (состояния)
+    symbols = make_symbols(Lh)
+    print("All states (symbols):")
+    print(symbols)
+
+    # 2. Определяем стартовое состояние (обратите внимание: в make_start возвращается индекс +1)
+    start = make_start(Lh, symbols)
+    print("\nStart state index (0-based):", start)
+
+    # 3. Строим таблицу переходов next_states
+    next_states = make_next(symbols)
+    print("\nNext states lookup table:")
+    for i, nxt in enumerate(next_states):
+        print(f"State {i}: can go to states {nxt}")
+
+    # 4. Строим таблицу предыдущих состояний previous_states
+    previous_states = make_previous(symbols)
+    print("\nPrevious states lookup table:")
+    for i, prev in enumerate(previous_states):
+        print(f"State {i}: can come from states {prev}")
+
+    # --- Добавляем декодирование входного сигнала y с подробным выводом ---
+    y = np.array([0.7, -0.2, -0.65, 0.44, 0.63])  # Входной сигнал для декодирования
+
+    current_state = start  # Текущее состояние начинается со стартового
+    decoded_sequence = []  # Список для хранения декодированных символов
+
+    print("\nDecoding steps:")
+    for i in range(len(y)):
+        print(f"\nStep {i+1}:")
+        print(f"Current input y[{i}] = {y[i]}")
+
+        print(f"Possible previous states for current state {current_state}: {previous_states[current_state]}")
+        print(f"Possible next states from current state {current_state}: {next_states[current_state]}")
+
+        # Получаем два возможных следующих состояния
+        next_0, next_1 = next_states[current_state]
+        increment = make_increment(symbols, next_states, Rhh)
+        print(f'increment:\n {increment}')
+        # Вычисляем ошибку для каждого возможного перехода
+        error_0 = (y[i] - symbols[next_0][0]) ** 2
+        error_1 = (y[i] - symbols[next_1][0]) ** 2
+
+        print(f"Error if go to state {next_0} (symbol {symbols[next_0][0]}): {error_0:.4f}")
+        print(f"Error if go to state {next_1} (symbol {symbols[next_1][0]}): {error_1:.4f}")
+
+        # Выбираем следующий переход с минимальной ошибкой
+        if error_0 <= error_1:
+            chosen_state = next_0
+        else:
+            chosen_state = next_1
+
+        print(f"Chosen next state: {chosen_state} with symbol {symbols[chosen_state][0]}")
+
+        # Сохраняем символ (первый элемент символов состояния) как выходной
+        decoded_sequence.append(symbols[chosen_state][0])
+
+        # Переходим в выбранное состояние
+        current_state = chosen_state
+
+    print("\nDecoded symbol sequence from input y:", decoded_sequence)
