@@ -9,7 +9,7 @@ import concurrent.futures
 import numpy as np
 from scipy.signal import convolve
 from tqdm import tqdm
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 def get_receiver_constellation(mod_type: str) -> np.ndarray:
     """Returns the complex constellation for the receiver's Viterbi logic."""
@@ -33,6 +33,7 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     # Нужны повторяемые данные
     # user1_data_bits = np.random.randint(0, 2, count_bit)
     user1_data_bits = bit_generator.generate_bit(count_bit, number_seed= 10)
+    # print(f'user1 data generate:\n{user1_data_bits}')
 
     ts_symbols = receiver_constellation[np.random.randint(0, len(receiver_constellation), N_ts)]
     ts_symbols = np.array(rx_config.training_sequence, dtype=np.complex128)
@@ -64,7 +65,15 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     rx_ant1_noisy = awgn.add_noise(s1_conv_ant1 + 0*s2_conv_ant1, snr_db) # умножим на '0', чтобы не было интерференции
     rx_ant2_noisy = awgn.add_noise(s1_conv_ant2 + 0*s2_conv_ant2, snr_db) # умножим на '0', чтобы не было интерференции
     rx_matrix = np.vstack([rx_ant1_noisy, rx_ant2_noisy])
+    # rx_matrix = np.vstack([s1_conv_ant1, s1_conv_ant2])
     
+    # plt.figure()
+    # plt.subplot(211)
+    # plt.plot(s1_conv_ant1.real)
+    # plt.plot(s1_conv_ant1.imag)
+    # plt.subplot(212)
+    # plt.plot(rx_ant1_noisy.real)
+    # plt.plot(rx_ant1_noisy.imag)
     # --- Receiver Processing ---
     ts_rx_len = N_ts + L - 1
     rx_ts_part = rx_matrix[:, :ts_rx_len]
@@ -77,19 +86,7 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     # h2_est, _ = channel_estimator.estimate_channel_corr(rx_ts_part[1, :], ts_symbols, L, samp_rate)
     h1_est = channel_estimator.estimate_channel_ls(rx_ts_part[0, :], ts_symbols, L)
     h2_est = channel_estimator.estimate_channel_ls(rx_ts_part[1, :], ts_symbols, L)
-    # import matplotlib.pyplot as plt
-    # plt.figure()
-    # plt.subplot(211)
-    # plt.plot(abs(h1_est))
-    # plt.subplot(212)
-    # plt.plot(abs(h_true_user1[0]))
-    
-    # plt.figure()
-    # plt.subplot(211)
-    # plt.plot(np.angle(h1_est))
-    # plt.subplot(212)
-    # plt.plot(np.angle(h_true_user1[0]))
-    # plt.show()
+
     h_est_matrix = np.vstack([h1_est, h2_est])
     Q_est = np.eye(2)
     if rx_config.receiver_type == "IRC-MLSE":
@@ -104,6 +101,7 @@ def run_single_iteration(config, snr_db, ci_db, show_plots=False):
     # --- BER Calculation ---
     decoded_bits = modulation.demodulate_symbols(mod_type, decoded_symbol_indices, samp_rate)
     decoded_bits = decoded_bits[:len(user1_data_bits)]
+    # print(f'data after Vitrebi:\n{decoded_bits}')
     ber = metrics.calculate_ber(user1_data_bits, decoded_bits)
     
     # --- Optional Plotting for Single Run ---

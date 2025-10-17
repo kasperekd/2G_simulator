@@ -63,6 +63,7 @@ class BPSK:
 
     def demodulate(self, received_signal):
         # Демодуляция по знаку реальной части
+        # print(received_signal)
         return (received_signal > 0).astype(int)
 
 # class PSK8:

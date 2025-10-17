@@ -68,6 +68,7 @@ def calculate_irc_parameters(rx_signal_matrix: np.ndarray, h_matrix: np.ndarray,
         irc_filter = np.conj(np.flip(g_matrix[i, :]))
         S_n_full += convolve(h_matrix[i, :], irc_filter, mode='full')
 
-    S_n_out = S_n_full[L-1 : L-1 + L]
+    S_n_out = S_n_full[L-1 : L-1 + L] # как должна быть
+    # S_n_out = S_n_full  #без обрезки - найдена пасхалка от Кости
 
     return y_hat, S_n_out
