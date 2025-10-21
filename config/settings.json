@@ -1,34 +1,43 @@
 {
-  "simulation_mode": {
-    "mode": "MonteCarlo",
-    "single_run_ci_db": 10,
-    "monte_carlo": {
-      "ci_db_min": -14,
-      "ci_db_max": 14,
-      "ci_db_step": 2,
-      "num_iterations": 100
-    }
-  },
-  "generation_signal_configuration":{
-    "count_bit": 200,
-    "seed_configuration":{
-      "seed_enabled": true,
-      "number_seed": 1234
+  "num_interferers": 1,
+  "use_pim": false,
+  "core_simulation_parameters": {
+    "modulation_type": "QPSK",
+    "channel_model": "TU50",
+    "channel_memory": 3,
+    "num_data_symbols_per_burst": 116,
+    "target_ratio_range_db":{
+      "start": -5,
+      "stop": 21,
+      "step": 0.5
     },
-    "sampling_rate": 1
+    "num_bursts": 100
   },
-  "modulation_type": "BPSK",
-  "channel_configuration": {
-    "channel_type": "AWGN"
+  "mode_selection": {
+    "calculation_mode": "SINR",
+    "channel_estimation_method": "ls"
   },
-  "noise_configuration": {
-    "noise_enabled": true,
-    "signal_to_noise_ratio_db": 1
+  "physical_layer_parameters": {
+    "bs_nf_db": 3.0,
+    "fs_hz": 1083333.33,
+    "temp_k": 300
   },
-  "receiver_configuration": {
-    "receiver_type": "IRC-MLSE",
-    "channel_memory_L": 4,
+  "burst_structure_parameters": {
     "training_sequence_len": 26,
-    "training_sequence": [1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1]
+    "traceback_depth": 15
+  },
+  "file_paths": {
+    "channel_mat_file": "Ht2_0204_11.mat"
   }
+  // "derived_parameters": {
+  //   "bits_per_symbol": null,
+  //   "constellation": null,
+  //   "training_sequence":{
+  //     "ts_bpsk": null,
+  //     "ts_gmsk": null,
+  //     "ts_8psk": null,
+  //     "ts_qpsk": null,
+  //     "ts_qam16": null
+  //   }
+  // }
 }
