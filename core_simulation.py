@@ -1,3 +1,4 @@
+from config import validator, loader, extract_parameters
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
@@ -64,50 +65,7 @@ class Modulator:
         return np.array(bit_list)
 
 # ==============================================================================
-# 2. CONFIGURATION
-# ==============================================================================
-
-class MLSEConfig:
-    def __init__(self):
-        # TODO: Implement a function to select these based on Test Case
-        self.num_interferers = 1
-        self.use_pim = False
-
-        # Core Simulation Parameters
-        self.modulation_type = 'QPSK'
-        self.channel_model = 'TU50'  # 'AWGN' or 3GPP models
-        self.channel_memory = 3
-        self.num_data_symbols_per_burst = 116
-        self.target_ratio_range_db = np.arange(0, 25, 2)  # This is C/I or SINR range
-        self.num_bursts = 100
-
-        # Mode Selection
-        self.calculation_mode = 'SINR'  # 'CI' or 'SINR'
-        self.channel_estimation_method = 'ls'  # 'true' (perfect) or 'ls' (least squares)
-
-        # Physical Layer Parameters
-        self.bs_nf_db = 3.0      # Noise Figure in dB
-        self.fs_hz = 1083333.33  # Sampling frequency
-        self.temp_k = 300        # System temperature in Kelvin
-
-        # Burst Structure Parameters
-        self.training_sequence_len = 26
-        self.traceback_depth = 15
-
-        # File Paths
-        self.channel_mat_file = 'Ht2_0204_11.mat'
-
-        # Derived parameters
-        self.modem = Modulator(self.modulation_type)
-        self.bits_per_symbol = self.modem.bits_per_symbol
-        self.constellation = self.modem.constellation
-        ts_indices = np.random.randint(
-            0, len(self.constellation), self.training_sequence_len
-        )
-        self.training_sequence = self.constellation[ts_indices]
-
-# ==============================================================================
-# 3. HELPER AND SIMULATION FUNCTIONS
+# 2. HELPER AND SIMULATION FUNCTIONS
 # ==============================================================================
 
 
@@ -215,19 +173,19 @@ def generate_data_bits(num_bits):
     return np.random.randint(0, 2, num_bits)
 
 
-def add_thermal_noise(signal, config: MLSEConfig):
+def add_thermal_noise(signal, config):
     # Physical noise calculation
     k_boltzmann = 1.380649e-23
-    nf_linear = 10**(config.bs_nf_db / 10)
+    nf_linear = 10**(config.physical_layer_parameters.bs_nf_db / 10)
     # TODO: Noise bandwidth should be channel bandwidth (e.g. 200e3 for GSM) not Fs
-    noise_power = k_boltzmann * config.temp_k * config.fs_hz * nf_linear
+    noise_power = k_boltzmann * config.physical_layer_parameters.temp_k * config.physical_layer_parameters.fs_hz * nf_linear
     noise_std_dev = np.sqrt(noise_power / 2)
     noise = noise_std_dev * (
         np.random.randn(*signal.shape) + 1j * np.random.randn(*signal.shape)
     )
     return signal + noise
 
-
+# TODO: changing the parameters for the types of modulation
 def create_burst(data_bits, modem, training_sequence, channel_memory):
     data_symbols = modem.modulate(data_bits)
     part1_len = len(data_symbols) // 2
@@ -240,29 +198,36 @@ def create_burst(data_bits, modem, training_sequence, channel_memory):
     return burst, data_symbols
 
 
-def simulate(config: MLSEConfig):
-    h11, h12, h21, h22 = load_quadriga_channel(config.channel_mat_file)
-    L = config.channel_memory
-    modem = config.modem
+def simulate(config):
+    num_interferers, channel_mat_file, channel_memory, range_db, modulation_type, calculation_mode, channel_estimation_method, num_bursts, channel_model, num_data_symbols_per_burst, training_sequence_len, traceback_depth, training_sequence, bs_nf_db, temp_k, fs_hz = extract_parameters.extract_config_parameters(config)
+    h11, h12, h21, h22 = load_quadriga_channel(channel_mat_file)
+    L = channel_memory
+    modem = Modulator(modulation_type)
+    # FIXME: random TS for BPSK. Now we have GMSK TS for all modulation
+    ts_indices = np.random.randint(
+            0, len(modem.constellation), training_sequence_len
+        )
+    training_sequence = modem.constellation[ts_indices]
+    target_ratio_range_db = np.arange(range_db[0], range_db[1], range_db[2])
 
     ratio_values, ber_values = [], []
 
     print("Starting simulation:")
     print(
-        f"Modulation: {config.modulation_type}, "
-        f"Mode: {config.calculation_mode}, "
-        f"Estimation: {config.channel_estimation_method}"
+        f"Modulation: {modulation_type}, "
+        f"Mode: {calculation_mode}, "
+        f"Estimation: {channel_estimation_method}"
     )
 
-    for target_ratio_db in config.target_ratio_range_db:
+    for target_ratio_db in target_ratio_range_db:
         total_errors, total_bits = 0, 0
-        for _ in range(config.num_bursts):
+        for _ in range(num_bursts):
             # 1. TRANSMITTER SIDE
             data_bits = generate_data_bits(
-                config.num_data_symbols_per_burst * config.bits_per_symbol
+                num_data_symbols_per_burst * modem.bits_per_symbol
             )
             tx_burst, original_data_symbols = create_burst(
-                data_bits, modem, config.training_sequence, L
+                data_bits, modem, training_sequence, L
             )
 
             # 2. CHANNEL PROPAGATION
@@ -276,9 +241,9 @@ def simulate(config: MLSEConfig):
             max_len = len(s1_rx_ant1)
             total_interf_rx_ant1 = np.zeros(max_len, dtype=complex)
             total_interf_rx_ant2 = np.zeros(max_len, dtype=complex)
-            for _ in range(config.num_interferers):
+            for _ in range(num_interferers):
                 interf_bits = generate_data_bits(
-                    len(tx_burst) * config.bits_per_symbol
+                    len(tx_burst) * modem.bits_per_symbol
                 )
                 interf_syms = modem.modulate(interf_bits)
                 h_interf_ant1 = h21[:L, channel_idx]
@@ -299,12 +264,12 @@ def simulate(config: MLSEConfig):
 
             target_ratio_linear = 10**(target_ratio_db / 10)
 
-            if config.calculation_mode == 'CI':
+            if calculation_mode == 'CI':
                 required_interf_power = signal_power / target_ratio_linear
             else:  # SINR
                 k_b = 1.380649e-23
-                nf_lin = 10**(config.bs_nf_db / 10)
-                noise_power = k_b * config.temp_k * config.fs_hz * nf_lin * 2
+                nf_lin = 10**(bs_nf_db / 10)
+                noise_power = k_b * temp_k * fs_hz * nf_lin * 2
                 required_interf_power = (signal_power / target_ratio_linear) - noise_power
                 if required_interf_power < 0:
                     required_interf_power = 1e-20
@@ -321,19 +286,19 @@ def simulate(config: MLSEConfig):
             rx_ant2_noisy = add_thermal_noise(rx_ant2, config)
 
             # 6. RECEIVER: Channel Estimation
-            if config.channel_estimation_method == 'true':
+            if channel_estimation_method == 'true':
                 h_est_ant1, h_est_ant2 = h_true_ant1, h_true_ant2
             else:  # 'ls'
                 ts_start_idx = len(original_data_symbols) // 2 + L
-                ts_end_idx = ts_start_idx + config.training_sequence_len
+                ts_end_idx = ts_start_idx + training_sequence_len
                 h_est_ant1 = estimate_channel_ls(
                     rx_ant1_noisy[ts_start_idx:ts_end_idx + L - 1],
-                    config.training_sequence,
+                    training_sequence,
                     L
                 )
                 h_est_ant2 = estimate_channel_ls(
                     rx_ant2_noisy[ts_start_idx:ts_end_idx + L - 1],
-                    config.training_sequence,
+                    training_sequence,
                     L
                 )
 
@@ -344,14 +309,14 @@ def simulate(config: MLSEConfig):
 
             mlse_input = rx_combined[:len(tx_burst) + L - 1]
             decoded_indices = mlse_viterbi_decode(
-                mlse_input, h_est_avg, config.constellation, config.traceback_depth
+                mlse_input, h_est_avg, modem.constellation, traceback_depth
             )
 
             # 8. BER CALCULATION
             d1_len = len(original_data_symbols) // 2
             d2_len = len(original_data_symbols) - d1_len
             decoded_d1_indices = decoded_indices[L: L + d1_len]
-            d2_start_idx = L + d1_len + config.training_sequence_len
+            d2_start_idx = L + d1_len + training_sequence_len
             d2_end_idx = d2_start_idx + d2_len
             decoded_d2_indices = decoded_indices[d2_start_idx: d2_end_idx]
             decoded_data_indices = np.concatenate([
@@ -365,7 +330,7 @@ def simulate(config: MLSEConfig):
         ber = total_errors / total_bits if total_bits > 0 else 0.5
         ratio_values.append(target_ratio_db)
         ber_values.append(ber)
-        print(f"  {config.calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f}")
+        print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f}")
 
     return np.array(ratio_values), np.array(ber_values)
 
@@ -375,13 +340,13 @@ def plot_results(ratio_values, ber_values, config):
     ber_plot = np.where(ber_values == 0, 1e-6, ber_values)
     plt.semilogy(ratio_values, ber_plot, 'bo-', linewidth=2, markersize=6)
     plt.grid(True, which='both', linestyle='--', alpha=0.5)
-    title = f"BER vs {config.calculation_mode} for {config.modulation_type}\n"
+    title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type}\n"
     title += (
-        f"(Estimation: {config.channel_estimation_method}, "
+        f"(Estimation: {config.mode_selection.channel_estimation_method}, "
         f"Interferers: {config.num_interferers})"
     )
     plt.title(title)
-    plt.xlabel(f'{config.calculation_mode} (dB)')
+    plt.xlabel(f'{config.mode_selection.calculation_mode} (dB)')
     plt.ylabel('BER')
     plt.ylim([1e-5, 1])
     plt.show()
@@ -389,21 +354,15 @@ def plot_results(ratio_values, ber_values, config):
 
 def main():
     np.random.seed(111)
-    config = MLSEConfig()
-
-    config.modulation_type = 'QPSK'
-    config.calculation_mode = 'CI'
-    config.channel_estimation_method = 'ls'
-    config.target_ratio_range_db = np.arange(-5, 21, 0.5)
-    config.modem = Modulator(config.modulation_type)
-    config.constellation = config.modem.constellation
+    config_path = "./config/settings.json"
+    config = validator.validate_config(loader.ConfigLoader.load(config_path))
     # ----------------------------------------------------------------- ---
 
     ratio_values, ber_values = simulate(config)
 
     print('\nFinal BER Results:')
     for r, ber in zip(ratio_values, ber_values):
-        print(f'{config.calculation_mode}={r:4.1f} dB => BER={ber:.6f}')
+        print(f'{config.mode_selection.calculation_mode}={r:4.1f} dB => BER={ber:.6f}')
     plot_results(ratio_values, ber_values, config)
 
 

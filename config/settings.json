@@ -2,7 +2,7 @@
   "num_interferers": 1,
   "use_pim": false,
   "core_simulation_parameters": {
-    "modulation_type": "QPSK",
+    "modulation_type": "8PSK",
     "channel_model": "TU50",
     "channel_memory": 3,
     "num_data_symbols_per_burst": 116,
@@ -14,7 +14,7 @@
     "num_bursts": 100
   },
   "mode_selection": {
-    "calculation_mode": "SINR",
+    "calculation_mode": "CI",
     "channel_estimation_method": "ls"
   },
   "physical_layer_parameters": {
@@ -28,16 +28,12 @@
   },
   "file_paths": {
     "channel_mat_file": "Ht2_0204_11.mat"
+  },
+  "table_training_sequence":{
+    "ts_bpsk": [0,0,1,0,0,1,0,1,1,1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,1,1],
+    "ts_gmsk": [0,0,1,0,0,1,0,1,1,1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,1,1],
+    "ts_8psk": [1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,0,0,1,0,0,1],
+    "ts_qpsk": [0,0,1,0,0,1,0,1,1,1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,1,1],
+    "ts_qam16": [0,0,1,0,0,1,0,1,1,1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,1,1]
   }
-  // "derived_parameters": {
-  //   "bits_per_symbol": null,
-  //   "constellation": null,
-  //   "training_sequence":{
-  //     "ts_bpsk": null,
-  //     "ts_gmsk": null,
-  //     "ts_8psk": null,
-  //     "ts_qpsk": null,
-  //     "ts_qam16": null
-  //   }
-  // }
 }

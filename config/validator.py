@@ -15,7 +15,7 @@ Classes:
 """
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
-from typing import Literal, Dict, Any, List
+from typing import Literal, Dict, Any, List, Optional
 
 class TargetRationRangeConfig(BaseModel):
     start: int
@@ -25,13 +25,13 @@ class TargetRationRangeConfig(BaseModel):
 class CoreParametrsConfig(BaseModel):
     '''Validation for core simulation'''
     modulation_type: Literal["BPSK", "GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
-    channel_model: Literal["AWGN, TU50"] # And another from 3GPP
+    channel_model: Literal["AWGN", "TU50"] # And another from 3GPP
     channel_memory: int = Field(
         ge=2,
         description="channel memory (must be >= 2)."
     )
     num_data_symbols_per_burst: int
-    target_ration_range_db: TargetRationRangeConfig
+    target_ratio_range_db: TargetRationRangeConfig
     num_bursts: int = Field(
         ge=1,
         description="num_bursts (must be >= 1)."
@@ -39,7 +39,7 @@ class CoreParametrsConfig(BaseModel):
 
 class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI"]
-    channel_estimation_method: Literal["ls","corr"] 
+    channel_estimation_method: Literal["ls","corr","true"] 
     
 class PhyLayerParametersConfig(BaseModel):
     bs_nf_db: float
@@ -53,6 +53,13 @@ class BurstStructParametersConfig(BaseModel):
 class FilePathsConfig(BaseModel):
     channel_mat_file: str
 
+class TableTraingingSequenceConfig(BaseModel):
+    ts_bpsk: Optional[List[int]]
+    ts_gmsk: Optional[List[int]]
+    ts_8psk: Optional[List[int]]
+    ts_qpsk: Optional[List[int]]
+    ts_qam16: Optional[List[int]]
+
 class SystemConfig(BaseModel):
     num_interferers: int
     use_pim: bool
@@ -61,6 +68,8 @@ class SystemConfig(BaseModel):
     physical_layer_parameters: PhyLayerParametersConfig
     burst_structure_parameters: BurstStructParametersConfig
     file_paths: FilePathsConfig
+    table_training_sequence: TableTraingingSequenceConfig
+
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.
