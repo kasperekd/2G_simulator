@@ -9,10 +9,9 @@ def extract_config_parameters(config: SystemConfig):
     mod_type = core_parameters.modulation_type
     channel_model = core_parameters.channel_model
     channel_memory = core_parameters.channel_memory
-    num_data_symbols_per_burst = core_parameters.num_data_symbols_per_burst
     range_db = core_parameters.target_ratio_range_db
     target_ratio_range_db = [range_db.start, range_db.stop, range_db.step]
-    num_burst = core_parameters.num_bursts
+    traceback_depth = core_parameters.traceback_depth
 
     # mode selection
     mode_selection = config.mode_selection
@@ -27,8 +26,9 @@ def extract_config_parameters(config: SystemConfig):
 
     # burst structure parameters
     burst_structure_parameters = config.burst_structure_parameters
+    num_burst = burst_structure_parameters.num_bursts
+    num_data_symbols_per_burst = burst_structure_parameters.num_data_symbols_per_burst
     training_sequence_len = burst_structure_parameters.training_sequence_len
-    traceback_depth = burst_structure_parameters.traceback_depth
 
     # file paths
     channel_mat_file = config.file_paths.channel_mat_file

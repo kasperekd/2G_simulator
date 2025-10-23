@@ -30,12 +30,8 @@ class CoreParametrsConfig(BaseModel):
         ge=2,
         description="channel memory (must be >= 2)."
     )
-    num_data_symbols_per_burst: int
     target_ratio_range_db: TargetRationRangeConfig
-    num_bursts: int = Field(
-        ge=1,
-        description="num_bursts (must be >= 1)."
-    )
+    traceback_depth: int
 
 class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI"]
@@ -47,8 +43,13 @@ class PhyLayerParametersConfig(BaseModel):
     temp_k: int
 
 class BurstStructParametersConfig(BaseModel):
+    num_data_symbols_per_burst: int
+    num_bursts: int = Field(
+        ge=1,
+        description="num_bursts (must be >= 1)."
+    )
     training_sequence_len: int
-    traceback_depth: int
+    
 
 class FilePathsConfig(BaseModel):
     channel_mat_file: str

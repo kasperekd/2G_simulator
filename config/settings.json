@@ -2,16 +2,15 @@
   "num_interferers": 1,
   "use_pim": false,
   "core_simulation_parameters": {
-    "modulation_type": "8PSK",
+    "modulation_type": "QPSK",
     "channel_model": "TU50",
     "channel_memory": 3,
-    "num_data_symbols_per_burst": 116,
     "target_ratio_range_db":{
       "start": -5,
       "stop": 21,
       "step": 0.5
     },
-    "num_bursts": 100
+    "traceback_depth": 15
   },
   "mode_selection": {
     "calculation_mode": "CI",
@@ -23,8 +22,9 @@
     "temp_k": 300
   },
   "burst_structure_parameters": {
-    "training_sequence_len": 26,
-    "traceback_depth": 15
+    "num_bursts": 100,
+    "num_data_symbols_per_burst": 116,
+    "training_sequence_len": 26
   },
   "file_paths": {
     "channel_mat_file": "Ht2_0204_11.mat"
