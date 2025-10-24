@@ -1,203 +1,25 @@
+# Import functions from modules 
 from config import validator, loader, extract_parameters
+from transceiver.modulator import Modulator
+from transceiver.burst import create_burst
+from transceiver.generate_data import generate_data_bits
+from channel.noise import add_thermal_noise
+from channel.quadriga import load_quadriga_channel
+from receiver.channel_estimation import estimate_channel_ls
+from receiver.viterbi import mlse_viterbi_decode
+from visualisation.result import plot_results
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import convolve
-import scipy.io as spio
 from typing import Dict
-import threading, time
 from multiprocessing import Pool, cpu_count
-
-# ==============================================================================
-# 1. MODULATION CLASS
-# ==============================================================================
-
-class Modulator:
-    def __init__(self, modulation_type='QPSK'):
-        self.type = modulation_type
-        if self.type == 'BPSK':
-            self.bits_per_symbol = 1
-            self.constellation = np.array([-1, 1])
-        elif self.type == 'QPSK':
-            self.bits_per_symbol = 2
-            self.constellation = np.array([
-                1 + 1j, -1 + 1j, -1 - 1j, 1 - 1j
-            ]) / np.sqrt(2)
-        elif self.type == '8PSK':
-            self.bits_per_symbol = 3
-            self.constellation = np.exp(1j * np.pi / 4 * np.arange(8))
-        elif self.type == '16QAM':
-            self.bits_per_symbol = 4
-            self.constellation = np.array([
-                -3 - 3j, -3 - 1j, -3 + 1j, -3 + 3j,
-                -1 - 3j, -1 - 1j, -1 + 1j, -1 + 3j,
-                 1 - 3j,  1 - 1j,  1 + 1j,  1 + 3j,
-                 3 - 3j,  3 - 1j,  3 + 1j,  3 + 3j
-            ]) / np.sqrt(10)
-        # TODO: Add 32QAM and a proper GMSK implementation.
-        else:
-            raise ValueError(f"Unsupported modulation type: {self.type}")
-        self.num_symbols = len(self.constellation)
-        self._map_bits_to_idx = {
-            tuple(map(int, np.binary_repr(i, width=self.bits_per_symbol))): i
-            for i in range(self.num_symbols)
-        }
-        self._map_idx_to_bits = {v: k for k, v in self._map_bits_to_idx.items()}
-
-    def modulate(self, bits):
-        if len(bits) % self.bits_per_symbol != 0:
-            bits = np.append(
-                bits,
-                np.zeros(
-                    self.bits_per_symbol - (len(bits) % self.bits_per_symbol),
-                    dtype=int
-                )
-            )
-        symbols = [
-            self.constellation[
-                self._map_bits_to_idx[tuple(bits[i:i + self.bits_per_symbol])]
-            ]
-            for i in range(0, len(bits), self.bits_per_symbol)
-        ]
-        return np.array(symbols)
-
-    def demodulate_indices(self, indices):
-        bit_list = [
-            bit for idx in indices for bit in self._map_idx_to_bits[idx]
-        ]
-        return np.array(bit_list)
+import time
 
 # ==============================================================================
 # 2. HELPER AND SIMULATION FUNCTIONS
 # ==============================================================================
 
-
-def load_quadriga_channel(file_path: str):
-    # FIXME: This function and its usage should be replaced by a proper 3GPP channel model generator.
-    mat_data = spio.loadmat(file_path)
-    return mat_data['Ht11'], mat_data['Ht12'], mat_data['Ht21'], mat_data['Ht22']
-
-
-def estimate_channel_ls(received_ts, known_ts, L):
-    len_ts = len(known_ts)
-    if len(received_ts) < len_ts:
-        received_ts = np.pad(received_ts, (0, len_ts - len(received_ts)))
-    S = np.zeros((len_ts, L), dtype=complex)
-    for i in range(len_ts):
-        for j in range(L):
-            if i - j >= 0:
-                S[i, j] = known_ts[i - j]
-    r = received_ts[:len_ts]
-    try:
-        h_est = np.linalg.inv(S.conj().T @ S) @ S.conj().T @ r
-    except np.linalg.LinAlgError:
-        h_est = np.linalg.pinv(S) @ r
-    return h_est
-
-
-def mlse_viterbi_decode(
-    received_symbols, channel_taps, constellation, traceback_depth=15
-):
-    channel_memory = len(channel_taps) - 1
-    num_symbols_in_constellation = len(constellation)
-
-    if channel_memory < 0:
-        channel_memory = 0
-
-    if channel_memory > 0:
-        num_states = num_symbols_in_constellation ** channel_memory
-        states = [
-            tuple(
-                reversed(
-                    [
-                        (i // (num_symbols_in_constellation ** j))
-                        % num_symbols_in_constellation
-                        for j in range(channel_memory)
-                    ]
-                )
-            )
-            for i in range(num_states)
-        ]
-    else:
-        num_states = 1
-        states = [()]
-
-    path_metrics = np.full(num_states, np.inf)
-    path_metrics[0] = 0
-    path_history = np.zeros((len(received_symbols), num_states, 2), dtype=int)
-
-    for t in range(len(received_symbols)):
-        r = received_symbols[t]
-        new_metrics = np.full(num_states, np.inf)
-
-        for curr_state_idx, curr_state in enumerate(states):
-            if path_metrics[curr_state_idx] == np.inf:
-                continue
-
-            for input_idx in range(num_symbols_in_constellation):
-                # Calculate expected symbol based on current input and state (past symbols)
-                expected = channel_taps[0] * constellation[input_idx]
-                for i, sym_idx in enumerate(curr_state):
-                    if i + 1 < len(channel_taps):
-                        expected += channel_taps[i + 1] * constellation[sym_idx]
-
-                branch_metric = np.abs(r - expected)**2
-
-                # Determine next state
-                next_state = (input_idx,) + curr_state[:-1] if channel_memory > 0 else ()
-                next_state_idx = states.index(next_state)
-
-                new_metric = path_metrics[curr_state_idx] + branch_metric
-                if new_metric < new_metrics[next_state_idx]:
-                    new_metrics[next_state_idx] = new_metric
-                    path_history[t, next_state_idx] = [curr_state_idx, input_idx]
-
-        path_metrics = new_metrics
-
-    # Traceback
-    decoded_indices = []
-    # Start from the state with the minimum path metric at the end
-    current_state_idx = np.argmin(path_metrics)
-
-    for t in range(len(received_symbols) - 1, -1, -1):
-        prev_state_idx, input_idx = path_history[t, current_state_idx]
-        decoded_indices.append(input_idx)
-        current_state_idx = prev_state_idx
-        if t > 0 and len(decoded_indices) >= traceback_depth:
-            # A simplified traceback approach for streaming data simulation
-            # For a block-based simulation, full traceback is better
-            pass
-
-    return np.array(list(reversed(decoded_indices)))
-
-
-def generate_data_bits(num_bits):
-    # TODO: Replace with a proper data source block, possibly including channel coding.
-    return np.random.randint(0, 2, num_bits)
-
-
-def add_thermal_noise(signal, config):
-    # Physical noise calculation
-    k_boltzmann = 1.380649e-23
-    nf_linear = 10**(config.physical_layer_parameters.bs_nf_db / 10)
-    # TODO: Noise bandwidth should be channel bandwidth (e.g. 200e3 for GSM) not Fs
-    noise_power = k_boltzmann * config.physical_layer_parameters.temp_k * config.physical_layer_parameters.fs_hz * nf_linear
-    noise_std_dev = np.sqrt(noise_power / 2)
-    noise = noise_std_dev * (
-        np.random.randn(*signal.shape) + 1j * np.random.randn(*signal.shape)
-    )
-    return signal + noise
-
-# TODO: changing the parameters for the types of modulation
-def create_burst(data_bits, modem, training_sequence, channel_memory):
-    data_symbols = modem.modulate(data_bits)
-    part1_len = len(data_symbols) // 2
-    part1_syms = data_symbols[:part1_len]
-    part2_syms = data_symbols[part1_len:]
-    tail_symbols = np.zeros(channel_memory)
-    burst = np.concatenate([
-        tail_symbols, part1_syms, training_sequence, part2_syms, tail_symbols
-    ])
-    return burst, data_symbols
 
 def single_iteration(param):
     (target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
@@ -213,6 +35,7 @@ def single_iteration(param):
 
         # 2. CHANNEL PROPAGATION
         channel_idx = np.random.randint(0, h11.shape[1])
+        # channel_idx = 0
         h_true_ant1 = h11[:L, channel_idx]
         h_true_ant2 = h12[:L, channel_idx]
         s1_rx_ant1 = convolve(tx_burst, h_true_ant1, 'full')
@@ -337,27 +160,11 @@ def simulate(config):
 
     return np.array(ratio_values), np.array(ber_values)
 
-def plot_results(ratio_values, ber_values, config):
-    plt.figure(figsize=(10, 6))
-    ber_plot = np.where(ber_values == 0, 1e-6, ber_values)
-    plt.semilogy(ratio_values, ber_plot, 'bo-', linewidth=2, markersize=6)
-    plt.grid(True, which='both', linestyle='--', alpha=0.5)
-    title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type}\n"
-    title += (
-        f"(Estimation: {config.mode_selection.channel_estimation_method}, "
-        f"Interferers: {config.num_interferers})"
-    )
-    plt.title(title)
-    plt.xlabel(f'{config.mode_selection.calculation_mode} (dB)')
-    plt.ylabel('BER')
-    plt.ylim([1e-5, 1])
-    plt.show()
-
 # TODO LIST:
 # integrate config (+)
 # adding parallel processing(+)
-# allocation of functions to modules (-)
-# adding burst types for others modulation(-)
+# allocation of functions to modules (+)
+# adding burst types for others modulation(+-)
 def main():
     config_path = "./config/settings.json"
     config = validator.validate_config(loader.ConfigLoader.load(config_path))

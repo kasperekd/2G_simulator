@@ -29,23 +29,27 @@ def extract_config_parameters(config: SystemConfig):
     num_burst = burst_structure_parameters.num_bursts
     num_data_symbols_per_burst = burst_structure_parameters.num_data_symbols_per_burst
     training_sequence_len = burst_structure_parameters.training_sequence_len
+    training_sequence = []
+    # # burst structure parameters
+    # # TODO: added QAM32 in core_simulation, settings, validator
+    # burst_structure_parameters = config.burst_structure_parameters
+    # burst_symbol_rate = burst_structure_parameters.burst_symbol_rate
+    # if burst_symbol_rate == 'normal':
+    #     burst_dict = {
+    #         'GMSK': [[0,0,0], 58 * 2, 26, [0,0,1,0,0,1,0,1,1,1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,1,1]],
+    #         '8PSK': [[1,1,1,1,1,1,1,1,1], 174 * 2, 78, [1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,0,0,1,0,0,1]],
+    #         'QAM16': [[0,0,0,1,0,1,1,0,0,1,1,0], 232 * 2, 104, [1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1,0,0,1,1]],
+    #     }
+    # elif burst_symbol_rate == 'higher':
+    #     burst_dict = {
+    #         'QPSK': [[0,0,0,1,1,1,1,0], 138 * 2, 62, [0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,0,0]],
+    #         'QAM16': [[0,0,0,1,0,1,1,0,0,1,1,0,1,1,0,1], 276 * 2, 124, [0,0,1,1,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,0,0]],
+    #     }
+    # num_burst = burst_structure_parameters.num_bursts
+    # tail_bits, num_data_symbols_per_burst, training_sequence_len, training_sequence = burst_dict.get(mod_type)
+
 
     # file paths
     channel_mat_file = config.file_paths.channel_mat_file
 
-    # table training sequence
-    table_training_sequence = config.table_training_sequence
-    if mod_type == 'BPSK':
-        training_sequence = table_training_sequence.ts_bpsk
-    elif mod_type == 'GMSK':
-        training_sequence = table_training_sequence.ts_gmsk
-    elif mod_type == '8PSK':
-        training_sequence = table_training_sequence.ts_8psk
-    elif mod_type == 'QPSK':
-        training_sequence = table_training_sequence.ts_qpsk
-    elif mod_type == 'QAM16':
-        training_sequence = table_training_sequence.ts_qam16
-    # TODO: added QAM32 in core_simulation, settings, validator
-    # elif mod_type == 'QAM32':
-    #     training_sequence = table_training_sequence.ts_qam32
     return num_interferers, channel_mat_file, channel_memory, target_ratio_range_db, mod_type, calculation_mode, channel_estimation_method, num_burst, channel_model, num_data_symbols_per_burst, training_sequence_len, traceback_depth, training_sequence, bs_nf_db, temp_k, fs_hz

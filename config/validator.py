@@ -43,23 +43,17 @@ class PhyLayerParametersConfig(BaseModel):
     temp_k: int
 
 class BurstStructParametersConfig(BaseModel):
-    num_data_symbols_per_burst: int
+    burst_symbol_rate: Literal["normal","higher"]    
     num_bursts: int = Field(
         ge=1,
         description="num_bursts (must be >= 1)."
     )
+    num_data_symbols_per_burst: int
     training_sequence_len: int
     
 
 class FilePathsConfig(BaseModel):
     channel_mat_file: str
-
-class TableTraingingSequenceConfig(BaseModel):
-    ts_bpsk: Optional[List[int]]
-    ts_gmsk: Optional[List[int]]
-    ts_8psk: Optional[List[int]]
-    ts_qpsk: Optional[List[int]]
-    ts_qam16: Optional[List[int]]
 
 class SystemConfig(BaseModel):
     num_interferers: int
@@ -69,8 +63,6 @@ class SystemConfig(BaseModel):
     physical_layer_parameters: PhyLayerParametersConfig
     burst_structure_parameters: BurstStructParametersConfig
     file_paths: FilePathsConfig
-    table_training_sequence: TableTraingingSequenceConfig
-
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.
