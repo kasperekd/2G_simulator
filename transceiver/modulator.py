@@ -6,6 +6,7 @@ import numpy as np
 class Modulator:
     def __init__(self, modulation_type='QPSK'):
         self.type = modulation_type
+        # TODO: Swap BPSK for GMSK
         if self.type == 'BPSK':
             self.bits_per_symbol = 1
             self.constellation = np.array([-1, 1])
@@ -17,7 +18,8 @@ class Modulator:
         elif self.type == '8PSK':
             self.bits_per_symbol = 3
             self.constellation = np.exp(1j * np.pi / 4 * np.arange(8))
-        elif self.type == '16QAM':
+            print(self.constellation)
+        elif self.type == 'QAM16':
             self.bits_per_symbol = 4
             self.constellation = np.array([
                 -3 - 3j, -3 - 1j, -3 + 1j, -3 + 3j,

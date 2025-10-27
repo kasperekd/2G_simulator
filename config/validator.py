@@ -24,7 +24,7 @@ class TargetRationRangeConfig(BaseModel):
 
 class CoreParametrsConfig(BaseModel):
     '''Validation for core simulation'''
-    modulation_type: Literal["BPSK", "GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
+    modulation_type: Literal["GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
     channel_model: Literal["AWGN", "TU50"] # And another from 3GPP
     channel_memory: int = Field(
         ge=2,
@@ -48,9 +48,6 @@ class BurstStructParametersConfig(BaseModel):
         ge=1,
         description="num_bursts (must be >= 1)."
     )
-    num_data_symbols_per_burst: int
-    training_sequence_len: int
-    
 
 class FilePathsConfig(BaseModel):
     channel_mat_file: str

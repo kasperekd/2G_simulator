@@ -25,13 +25,14 @@ def single_iteration(param):
     (target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
      training_sequence, num_bursts, bs_nf_db, temp_k, fs_hz, calculation_mode,
      channel_estimation_method, training_sequence_len, traceback_depth,
-     config, num_data_symbols_per_burst) = param
+     config, num_data_symbols_per_burst, tail_bits, guard_period) = param
     
     total_errors, total_bits = 0, 0
     for _ in range(num_bursts):
         # 1. TRANSMITTER SIDE
-        data_bits = generate_data_bits(num_data_symbols_per_burst * modem.bits_per_symbol)
-        tx_burst, original_data_symbols = create_burst(data_bits, modem, training_sequence, L)
+        data_bits = generate_data_bits(num_data_symbols_per_burst)
+        tx_burst, original_data_symbols, tail_symbols = create_burst(data_bits, modem, training_sequence, tail_bits, guard_period)
+        # print(f'shape tx burst = {tx_burst.shape}\nshape orig data symbols = {original_data_symbols.shape}')
 
         # 2. CHANNEL PROPAGATION
         channel_idx = np.random.randint(0, h11.shape[1])
@@ -46,7 +47,7 @@ def single_iteration(param):
         total_interf_rx_ant1 = np.zeros(max_len, dtype=complex)
         total_interf_rx_ant2 = np.zeros(max_len, dtype=complex)
         for _ in range(num_interferers):
-            interf_bits = generate_data_bits(len(tx_burst) * modem.bits_per_symbol)
+            interf_bits = generate_data_bits(len(tx_burst))
             interf_syms = modem.modulate(interf_bits)
             h_interf_ant1 = h21[:L, channel_idx]
             h_interf_ant2 = h22[:L, channel_idx]
@@ -88,8 +89,8 @@ def single_iteration(param):
         if channel_estimation_method == 'true':
             h_est_ant1, h_est_ant2 = h_true_ant1, h_true_ant2
         else:  # 'ls'
-            ts_start_idx = len(original_data_symbols) // 2 + L
-            ts_end_idx = ts_start_idx + training_sequence_len
+            ts_start_idx = len(original_data_symbols) // 2 + len(tail_symbols)
+            ts_end_idx = ts_start_idx + len(training_sequence)
             h_est_ant1 = estimate_channel_ls(rx_ant1_noisy[ts_start_idx: ts_end_idx + L - 1], training_sequence, L)
             h_est_ant2 = estimate_channel_ls(rx_ant2_noisy[ts_start_idx: ts_end_idx + L - 1], training_sequence, L)
 
@@ -103,8 +104,8 @@ def single_iteration(param):
         # 8. BER CALCULATION
         d1_len = len(original_data_symbols) // 2
         d2_len = len(original_data_symbols) - d1_len
-        decoded_d1_indices = decoded_indices[L: L + d1_len]
-        d2_start_idx = L + d1_len + training_sequence_len
+        decoded_d1_indices = decoded_indices[len(tail_symbols): len(tail_symbols) + d1_len]
+        d2_start_idx = len(tail_symbols) + d1_len + training_sequence_len // (modem.bits_per_symbol)
         d2_end_idx = d2_start_idx + d2_len
         decoded_d2_indices = decoded_indices[d2_start_idx: d2_end_idx]
         decoded_data_indices = np.concatenate([decoded_d1_indices, decoded_d2_indices])
@@ -119,15 +120,11 @@ def single_iteration(param):
 def simulate(config):
     np.random.seed(111)
     start_time = time.perf_counter()
-    num_interferers, channel_mat_file, channel_memory, range_db, modulation_type, calculation_mode, channel_estimation_method, num_bursts, channel_model, num_data_symbols_per_burst, training_sequence_len, traceback_depth, training_sequence, bs_nf_db, temp_k, fs_hz = extract_parameters.extract_config_parameters(config)
+    num_interferers, channel_mat_file, channel_memory, range_db, modulation_type, calculation_mode, channel_estimation_method, num_bursts, channel_model, num_data_symbols_per_burst, training_sequence_len, traceback_depth, training_sequence, bs_nf_db, temp_k, fs_hz, tail_bits, guard_period = extract_parameters.extract_config_parameters(config)
     h11, h12, h21, h22 = load_quadriga_channel(channel_mat_file)
     L = channel_memory
     modem = Modulator(modulation_type)
-    # FIXME: random TS for BPSK. Now we have GMSK TS for all modulation
-    ts_indices = np.random.randint(
-            0, len(modem.constellation), training_sequence_len
-        )
-    training_sequence = modem.constellation[ts_indices]
+    training_sequence = modem.modulate(training_sequence)
     target_ratio_range_db = np.arange(range_db[0], range_db[1], range_db[2])
 
     ratio_values, ber_values = np.zeros(len(target_ratio_range_db)), np.zeros(len(target_ratio_range_db))
@@ -144,7 +141,7 @@ def simulate(config):
             target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
             training_sequence, num_bursts, bs_nf_db, temp_k, fs_hz, calculation_mode,
             channel_estimation_method, training_sequence_len, traceback_depth,
-            config, num_data_symbols_per_burst
+            config, num_data_symbols_per_burst, tail_bits, guard_period
         ))
 
     with Pool(processes=cpu_count()) as pool:
@@ -164,7 +161,7 @@ def simulate(config):
 # integrate config (+)
 # adding parallel processing(+)
 # allocation of functions to modules (+)
-# adding burst types for others modulation(+-)
+# adding burst types for others modulation(+)
 def main():
     config_path = "./config/settings.json"
     config = validator.validate_config(loader.ConfigLoader.load(config_path))
