@@ -1,5 +1,5 @@
 from .validator import SystemConfig
-from typing import Tuple, Optional, List, Any
+import numpy as np
 
 def extract_config_parameters(config: SystemConfig):
     num_interferers = config.num_interferers
@@ -10,7 +10,7 @@ def extract_config_parameters(config: SystemConfig):
     channel_model = core_parameters.channel_model
     channel_memory = core_parameters.channel_memory
     range_db = core_parameters.target_ratio_range_db
-    target_ratio_range_db = [range_db.start, range_db.stop, range_db.step]
+    target_ratio_range_db = np.arange(range_db.start, range_db.stop, range_db.step)
     traceback_depth = core_parameters.traceback_depth
 
     # mode selection
@@ -39,10 +39,16 @@ def extract_config_parameters(config: SystemConfig):
             'QPSK': [[0,0,0,1,1,1,1,0], 138 * 2, 62, [0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0], 21],
             'QAM16': [[0,0,0,1,0,1,1,0,0,1,1,0,1,1,0,1], 276 * 2, 124, [0,0,1,1,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1], 42],
         }
-    num_burst = burst_structure_parameters.num_bursts
-    tail_bits, num_data_symbols_per_burst, training_sequence_len, training_sequence, guard_period = burst_dict.get(mod_type)
+    num_bursts = burst_structure_parameters.num_bursts
+    if mod_type not in burst_dict:
+        raise KeyError(f"mod type '{mod_type}' missing from the dictionary burst_dict")
+    tail_bits, num_data_bits_per_burst, training_sequence_len, training_sequence, guard_period = burst_dict[mod_type]
 
     # file paths
     channel_mat_file = config.file_paths.channel_mat_file
 
-    return num_interferers, channel_mat_file, channel_memory, target_ratio_range_db, mod_type, calculation_mode, channel_estimation_method, num_burst, channel_model, num_data_symbols_per_burst, training_sequence_len, traceback_depth, training_sequence, bs_nf_db, temp_k, fs_hz, tail_bits, guard_period
+    return (num_interferers, channel_mat_file, channel_memory, 
+            target_ratio_range_db, mod_type, calculation_mode, 
+            channel_estimation_method, num_bursts, channel_model, 
+            num_data_bits_per_burst, training_sequence_len, traceback_depth,
+            training_sequence, bs_nf_db, temp_k, fs_hz, tail_bits, guard_period)

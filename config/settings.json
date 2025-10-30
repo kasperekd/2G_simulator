@@ -22,8 +22,8 @@
     "temp_k": 300
   },
   "burst_structure_parameters": {
-    "burst_symbol_rate": "normal",
-    "num_bursts": 10
+    "burst_symbol_rate": "higher",
+    "num_bursts": 100
   },
   "file_paths": {
     "channel_mat_file": "./channel/Ht2_0204_11.mat"
