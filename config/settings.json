@@ -23,7 +23,7 @@
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "higher",
-    "num_bursts": 100
+    "num_bursts": 1000
   },
   "file_paths": {
     "channel_mat_file": "./channel/Ht2_0204_11.mat"
