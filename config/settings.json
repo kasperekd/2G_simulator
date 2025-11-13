@@ -2,7 +2,7 @@
   "num_interferers": 1,
   "use_pim": false,
   "core_simulation_parameters": {
-    "modulation_type": "QPSK",
+    "modulation_type": "BPSK",
     "channel_model": "TU50",
     "channel_memory": 3,
     "target_ratio_range_db":{
@@ -22,7 +22,7 @@
     "temp_k": 300
   },
   "burst_structure_parameters": {
-    "burst_symbol_rate": "higher",
+    "burst_symbol_rate": "normal",
     "num_bursts": 1000
   },
   "file_paths": {

@@ -24,8 +24,8 @@ class TargetRationRangeConfig(BaseModel):
 
 class CoreParametrsConfig(BaseModel):
     '''Validation for core simulation'''
-    modulation_type: Literal["GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
-    channel_model: Literal["AWGN", "TU50"] # And another from 3GPP
+    modulation_type: Literal['BPSK',"GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
+    channel_model: Literal["AWGN", "TU50", "EQ50", "HT100", "RA130"]
     channel_memory: int = Field(
         ge=2,
         description="channel memory (must be >= 2)."
