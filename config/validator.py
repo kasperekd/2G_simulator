@@ -36,6 +36,11 @@ class CoreParametrsConfig(BaseModel):
 class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI"]
     channel_estimation_method: Literal["ls","corr","true"] 
+    enable_irc: bool
+    irc_regularization: float = Field(
+        ge=0,
+        description="IRC regularization parameter (must be >= 0)."
+    )
     
 class PhyLayerParametersConfig(BaseModel):
     bs_nf_db: float

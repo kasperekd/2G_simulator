@@ -15,7 +15,8 @@ def simulate(config):
         num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, modulation_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, 
-        traceback_depth,bs_nf_db, temp_k, fs_hz, burst_symbol_rate
+        traceback_depth,bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
+        enable_irc, irc_regularization
     ) = extract_parameters.extract_config_parameters(config)
     (
         tail_bits, num_data_bits_per_burst, training_sequence_len, 
@@ -41,7 +42,8 @@ def simulate(config):
             target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
             training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
             channel_estimation_method, training_sequence_len, traceback_depth,
-            num_data_bits_per_burst, tail_bits, guard_period, config, channel_model
+            num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
+            enable_irc, irc_regularization
         )
         
         ber = calculate_ber(base_args, num_bursts, target_ratio_db)

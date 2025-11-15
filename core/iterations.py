@@ -1,3 +1,4 @@
+from core.irc_combining import irc_diversity_combining
 from transceiver.burst import create_burst
 from transceiver.generate_data import generate_data_bits
 from transceiver.interference import interference_generation
@@ -16,7 +17,8 @@ def single_burst_iteration(args):
         target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
         training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
         channel_estimation_method, training_sequence_len, traceback_depth,
-        num_data_bits_per_burst, tail_bits, guard_period, config, channel_model
+        num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
+        enable_irc, irc_regularization
     ) = args
     
     # TODO: uncomment second string for repeatability
@@ -62,9 +64,19 @@ def single_burst_iteration(args):
         )
 
     # 7. RECEIVER: Equalization and Decoding
-    #TODO: when it is implemented by another method, allocate it to the function
-    rx_combined = (rx_ant1_noisy + rx_ant2_noisy) / 2
-    h_est_avg = (h_est_ant1 + h_est_ant2) / 2
+    if enable_irc:
+        # IRC MODE
+        rx_combined, h_est_avg = irc_diversity_combining(
+            rx_ant1_noisy, rx_ant2_noisy,
+            h_est_ant1, h_est_ant2,
+            training_sequence,
+            enable_irc=True,
+            regularization=irc_regularization
+        )
+    else:
+        # MRC MODE
+        rx_combined = (rx_ant1_noisy + rx_ant2_noisy) / 2
+        h_est_avg = (h_est_ant1 + h_est_ant2) / 2
 
     mlse_input = rx_combined[:len(tx_burst) + L - 1]
     decoded_indices = mlse_viterbi_decode(mlse_input, h_est_avg, modem.constellation, traceback_depth)

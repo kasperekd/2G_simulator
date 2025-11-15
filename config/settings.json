@@ -14,7 +14,9 @@
   },
   "mode_selection": {
     "calculation_mode": "CI",
-    "channel_estimation_method": "ls"
+    "channel_estimation_method": "ls",
+    "enable_irc": false,
+    "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
     "bs_nf_db": 3.0,
