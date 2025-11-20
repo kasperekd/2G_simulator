@@ -135,7 +135,7 @@ def irc_mlse_preprocess(
     received_signals_antennas,
     channel_estimates_antennas,
     known_training_sequence,
-    regularization=0
+    regularization=1e-6
 ):
     """
     Args:
@@ -183,7 +183,8 @@ def irc_diversity_combining(
     h_est_ant1,
     h_est_ant2,
     training_sequence,
-    enable_irc=True
+    enable_irc=True,
+    regularization=1e-6
 ):
     """
     Args:
@@ -221,7 +222,8 @@ def irc_diversity_combining(
     combined_signal, effective_channel = irc_mlse_preprocess(
         received_signals,
         channel_estimates,
-        training_sequence
+        training_sequence,
+        regularization=regularization
     )
 
     return combined_signal, effective_channel
