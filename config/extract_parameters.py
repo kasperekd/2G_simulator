@@ -17,7 +17,7 @@ def extract_config_parameters(config: SystemConfig):
     mode_selection = config.mode_selection
     calculation_mode = mode_selection.calculation_mode
     channel_estimation_method = mode_selection.channel_estimation_method
-    enable_irc = mode_selection.enable_irc
+    combining_mode = mode_selection.combining_mode
     irc_regularization = mode_selection.irc_regularization
 
     # physical layer parameters
@@ -39,6 +39,6 @@ def extract_config_parameters(config: SystemConfig):
         num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, mod_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, 
-        traceback_depth,bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
-        enable_irc, irc_regularization
+        traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
+        combining_mode, irc_regularization
     )

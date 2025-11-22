@@ -18,7 +18,7 @@ def single_burst_iteration(args):
         training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
         channel_estimation_method, training_sequence_len, traceback_depth,
         num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
-        enable_irc, irc_regularization
+        combining_mode, irc_regularization
     ) = args
     
     # TODO: uncomment second string for repeatability
@@ -64,7 +64,7 @@ def single_burst_iteration(args):
         )
 
     # 7. RECEIVER: Equalization and Decoding
-    if enable_irc:
+    if combining_mode == "IRC":
         # IRC MODE
         rx_combined, h_est_avg = irc_diversity_combining(
             rx_ant1_noisy, rx_ant2_noisy,
@@ -73,10 +73,15 @@ def single_burst_iteration(args):
             enable_irc=True,
             regularization=irc_regularization
         )
-    else:
+    elif combining_mode == "MRC":
         # MRC MODE
         rx_combined = (rx_ant1_noisy + rx_ant2_noisy) / 2
         h_est_avg = (h_est_ant1 + h_est_ant2) / 2
+    elif combining_mode == "SAIC":
+        # TODO: implement SAIC mode
+        raise NotImplementedError("SAIC combining mode is not implemented yet.")
+    else:
+        raise ValueError(f"Unknown combining mode: {combining_mode}")
 
     mlse_input = rx_combined[:len(tx_burst) + L - 1]
     decoded_indices = mlse_viterbi_decode(mlse_input, h_est_avg, modem.constellation, traceback_depth)
