@@ -9,6 +9,7 @@ from core.burst_info import get_burst_parameters
 import numpy as np
 import time
 import sys
+import glob
 from pathlib import Path
 
 def simulate(config):
@@ -18,7 +19,8 @@ def simulate(config):
         target_ratio_range_db, modulation_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, 
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
-        combining_mode, irc_regularization
+        combining_mode, irc_regularization,
+        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
     ) = extract_parameters.extract_config_parameters(config)
     (
         tail_bits, num_data_bits_per_burst, training_sequence_len, 
@@ -43,6 +45,11 @@ def simulate(config):
     print(f"Combining Mode:             {combining_mode}")
     if combining_mode == "IRC":
         print(f"IRC Regularization:         {irc_regularization}")
+    print(f"SAIC preprocessing enabled: {apply_saic_preprocessing}")
+    if apply_saic_preprocessing:
+        print(f"SAIC method:                {saic_method}")
+        print(f"SAIC regularization:        {saic_regularization}")
+        print(f"SAIC thermal noise var.:    {saic_thermal_noise_variance}")
     print(f"Number of Interferers:      {num_interferers}")
     print(f"Number of Bursts:           {num_bursts}")
     print(f"Burst Symbol Rate:          {burst_symbol_rate}")
@@ -60,7 +67,8 @@ def simulate(config):
             training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
             channel_estimation_method, training_sequence_len, traceback_depth,
             num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
-            combining_mode, irc_regularization
+            combining_mode, irc_regularization,
+            apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
         )
         
         ber = calculate_ber(base_args, num_bursts, target_ratio_db)
@@ -88,20 +96,48 @@ def main():
             comparison_files = sys.argv[2:]
             
             if not comparison_files:
-                print("Error: --compare flag requires file paths")
-                print("Usage: python core_simulation.py --compare file1.csv file2.csv file3.csv")
+                print("Error: --compare flag requires file paths or patterns")
+                print("Usage: python core_simulation.py --compare file1.csv file2.csv")
+                print("   or: python core_simulation.py --compare ./results/*.csv")
+                print("   or: python core_simulation.py --compare ./*")
                 sys.exit(1)
             
-            # Verify all files exist
+            # Expand glob patterns and collect CSV files
+            expanded_files = []
             for filepath in comparison_files:
-                if not Path(filepath).exists():
-                    print(f"Error: File not found: {filepath}")
-                    sys.exit(1)
+                # Check if it's a glob pattern
+                if any(char in filepath for char in ['*', '?', '[']):
+                    # Expand glob pattern
+                    matches = glob.glob(filepath)
+                    if not matches:
+                        print(f"Warning: glob pattern '{filepath}' matched no files")
+                        continue
+                    # Filter to CSV files only
+                    csv_matches = [f for f in matches if f.endswith('.csv')]
+                    expanded_files.extend(csv_matches)
+                else:
+                    # Regular file path
+                    if not Path(filepath).exists():
+                        print(f"Error: File not found: {filepath}")
+                        sys.exit(1)
+                    if filepath.endswith('.csv'):
+                        expanded_files.append(filepath)
+            
+            # Remove duplicates and sort
+            expanded_files = sorted(list(set(expanded_files)))
+            
+            if not expanded_files:
+                print("Error: No CSV files found to compare")
+                sys.exit(1)
+            
+            print(f"Found {len(expanded_files)} CSV file(s) to compare:")
+            for f in expanded_files:
+                print(f"  - {f}")
             
             print("=" * 80)
             print("COMPARISON MODE - Loading Results")
             print("=" * 80)
-            plot_results(comparison_files=comparison_files)
+            plot_results(comparison_files=expanded_files)
             return
     
     # Normal simulation mode

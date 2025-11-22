@@ -34,4 +34,11 @@
     "save_results": true,
     "output_directory": "./results"
   }
+  ,
+  "saic": {
+    "apply_saic_preprocessing": false,
+    "method": "basic",
+    "regularization": 1e-6,
+    "thermal_noise_variance": 1e-6
+  }
 }

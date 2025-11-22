@@ -34,11 +34,18 @@ def extract_config_parameters(config: SystemConfig):
 
     # file paths
     channel_mat_file = config.file_paths.channel_mat_file
+    # saic parameters
+    saic_cfg = config.saic
+    apply_saic_preprocessing = saic_cfg.apply_saic_preprocessing
+    saic_method = saic_cfg.method
+    saic_regularization = saic_cfg.regularization
+    saic_thermal_noise_variance = saic_cfg.thermal_noise_variance
 
     return (
         num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, mod_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, 
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
-        combining_mode, irc_regularization
+        combining_mode, irc_regularization,
+        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
     )

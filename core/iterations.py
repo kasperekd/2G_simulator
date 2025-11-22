@@ -11,6 +11,7 @@ from receiver.DeMUX import extract_data_segments
 
 from scipy.signal import convolve
 import numpy as np
+from core.saic_whitening import single_antenna_processing
 
 def single_burst_iteration(args):
     (
@@ -18,7 +19,8 @@ def single_burst_iteration(args):
         training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
         channel_estimation_method, training_sequence_len, traceback_depth,
         num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
-        combining_mode, irc_regularization
+        combining_mode, irc_regularization,
+        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
     ) = args
     
     # TODO: uncomment second string for repeatability
@@ -64,22 +66,65 @@ def single_burst_iteration(args):
         )
 
     # 7. RECEIVER: Equalization and Decoding
+    # Optionally apply single-antenna SAIC preprocessing to each branch before combining
+    if apply_saic_preprocessing:
+        proc_ant1, eff_ch1 = single_antenna_processing(
+            rx_ant1_noisy,
+            h_est_ant1,
+            training_sequence,
+            enable_saic=True,
+            method=saic_method,
+            regularization=saic_regularization,
+            thermal_noise_variance=saic_thermal_noise_variance
+        )
+        proc_ant2, eff_ch2 = single_antenna_processing(
+            rx_ant2_noisy,
+            h_est_ant2,
+            training_sequence,
+            enable_saic=True,
+            method=saic_method,
+            regularization=saic_regularization,
+            thermal_noise_variance=saic_thermal_noise_variance
+        )
+        # replace noisy signals and estimated channels with processed versions for combining
+        rx_ant1_for_comb = proc_ant1
+        rx_ant2_for_comb = proc_ant2
+        h_est_ant1_for_comb = eff_ch1
+        h_est_ant2_for_comb = eff_ch2
+    else:
+        rx_ant1_for_comb = rx_ant1_noisy
+        rx_ant2_for_comb = rx_ant2_noisy
+        h_est_ant1_for_comb = h_est_ant1
+        h_est_ant2_for_comb = h_est_ant2
     if combining_mode == "IRC":
         # IRC MODE
         rx_combined, h_est_avg = irc_diversity_combining(
-            rx_ant1_noisy, rx_ant2_noisy,
-            h_est_ant1, h_est_ant2,
+            rx_ant1_for_comb, rx_ant2_for_comb,
+            h_est_ant1_for_comb, h_est_ant2_for_comb,
             training_sequence,
             enable_irc=True,
             regularization=irc_regularization
         )
     elif combining_mode == "MRC":
         # MRC MODE
-        rx_combined = (rx_ant1_noisy + rx_ant2_noisy) / 2
-        h_est_avg = (h_est_ant1 + h_est_ant2) / 2
+        rx_combined = (rx_ant1_for_comb + rx_ant2_for_comb) / 2
+        h_est_avg = (h_est_ant1_for_comb + h_est_ant2_for_comb) / 2
+    elif combining_mode == "SINGLE":
+        rx_combined = rx_ant2_for_comb
+        h_est_avg = h_est_ant2_for_comb
     elif combining_mode == "SAIC":
-        # TODO: implement SAIC mode
-        raise NotImplementedError("SAIC combining mode is not implemented yet.")
+
+        proc_ant2, eff_ch2 = single_antenna_processing(
+            rx_ant2_noisy ,
+            h_est_ant2,
+            training_sequence,
+            enable_saic=True,
+            method='bias_removal',
+            regularization=irc_regularization
+        )
+
+        rx_combined = proc_ant2
+        h_est_avg = eff_ch2
     else:
         raise ValueError(f"Unknown combining mode: {combining_mode}")
 

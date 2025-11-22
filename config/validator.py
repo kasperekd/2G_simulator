@@ -36,7 +36,7 @@ class CoreParametrsConfig(BaseModel):
 class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI"]
     channel_estimation_method: Literal["ls","corr","true"] 
-    combining_mode: Literal["IRC", "MRC", "SAIC"]
+    combining_mode: Literal["IRC", "MRC", "SAIC", "SINGLE"]
     irc_regularization: float = Field(
         ge=0,
         description="IRC regularization parameter (must be >= 0)."
@@ -67,6 +67,26 @@ class ResultsOutputConfig(BaseModel):
         description="Directory where CSV results will be saved."
     )
 
+class SAICConfig(BaseModel):
+    apply_saic_preprocessing: bool = Field(
+        default=False,
+        description="Apply single-antenna SAIC whitening preprocessing before combining."
+    )
+    method: Literal['basic', 'bias_removal'] = Field(
+        default='basic',
+        description="SAIC preprocessing method."
+    )
+    regularization: float = Field(
+        default=1e-6,
+        ge=0,
+        description="Regularization parameter for SAIC whitening."
+    )
+    thermal_noise_variance: float = Field(
+        default=1e-6,
+        ge=0,
+        description="Estimated thermal noise variance used in bias removal."
+    )
+
 class SystemConfig(BaseModel):
     num_interferers: int
     use_pim: bool
@@ -76,6 +96,7 @@ class SystemConfig(BaseModel):
     burst_structure_parameters: BurstStructParametersConfig
     file_paths: FilePathsConfig
     results_output: ResultsOutputConfig = Field(default_factory=ResultsOutputConfig)
+    saic: SAICConfig = Field(default_factory=SAICConfig)
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.
