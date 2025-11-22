@@ -57,6 +57,16 @@ class BurstStructParametersConfig(BaseModel):
 class FilePathsConfig(BaseModel):
     channel_mat_file: str
 
+class ResultsOutputConfig(BaseModel):
+    save_results: bool = Field(
+        default=False,
+        description="Whether to save simulation results to CSV file."
+    )
+    output_directory: str = Field(
+        default="./results",
+        description="Directory where CSV results will be saved."
+    )
+
 class SystemConfig(BaseModel):
     num_interferers: int
     use_pim: bool
@@ -65,6 +75,7 @@ class SystemConfig(BaseModel):
     physical_layer_parameters: PhyLayerParametersConfig
     burst_structure_parameters: BurstStructParametersConfig
     file_paths: FilePathsConfig
+    results_output: ResultsOutputConfig = Field(default_factory=ResultsOutputConfig)
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.

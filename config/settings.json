@@ -29,5 +29,9 @@
   },
   "file_paths": {
     "channel_mat_file": "./channel/Ht2_0204_11.mat"
+  },
+  "results_output": {
+    "save_results": true,
+    "output_directory": "./results"
   }
 }

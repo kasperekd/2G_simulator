@@ -11,3 +11,19 @@
 - [Структура проекта](doc/STRUCT.md)
 - [Правила версионирования](doc/VERSIONING.md)
 - [Стиль кодирования](doc/CODING_STYLE.md)
+
+## Quick Usage
+
+- Запуск обычной симуляции (показывает график и при включенном сохранении создаёт CSV):
+
+```
+python core_simulation.py
+```
+
+- Сравнение нескольких ранее сохранённых результатов (CSV) на одном графике:
+
+```
+python core_simulation.py --compare file1.csv file2.csv file3.csv
+```
+
+Файлы CSV создаются в папке, указанной в `config/settings.json` (параметр `results_output.output_directory`).

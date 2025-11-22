@@ -2,12 +2,14 @@
 from config import validator, loader, extract_parameters
 from transceiver.modulator import Modulator
 from channel.quadriga import load_quadriga_channel
-from visualisation.result import plot_results
+from visualisation.result import plot_results, save_results_to_csv
 from core.ber import calculate_ber
 from core.burst_info import get_burst_parameters
 
 import numpy as np
 import time
+import sys
+from pathlib import Path
 
 def simulate(config):
     start_time = time.perf_counter()
@@ -76,6 +78,33 @@ def simulate(config):
 
 
 def main():
+    # Check for command line arguments
+    compare_mode = False
+    comparison_files = []
+    
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--compare':
+            compare_mode = True
+            comparison_files = sys.argv[2:]
+            
+            if not comparison_files:
+                print("Error: --compare flag requires file paths")
+                print("Usage: python core_simulation.py --compare file1.csv file2.csv file3.csv")
+                sys.exit(1)
+            
+            # Verify all files exist
+            for filepath in comparison_files:
+                if not Path(filepath).exists():
+                    print(f"Error: File not found: {filepath}")
+                    sys.exit(1)
+            
+            print("=" * 80)
+            print("COMPARISON MODE - Loading Results")
+            print("=" * 80)
+            plot_results(comparison_files=comparison_files)
+            return
+    
+    # Normal simulation mode
     config_path = "./config/settings.json"
     config = validator.validate_config(loader.ConfigLoader.load(config_path))
     # --------------------------------------------------------------------
@@ -87,6 +116,13 @@ def main():
     for r, ber in zip(ratio_values, ber_values):
         print(f'{config.mode_selection.calculation_mode}={r:4.1f} dB => BER={ber:.6f}')
     print("-" * 80)
+    
+    # Save results if enabled
+    if config.results_output.save_results:
+        output_path = config.results_output.output_directory
+        csv_filepath = save_results_to_csv(ratio_values, ber_values, config, output_path)
+        print(f"CSV file saved: {csv_filepath}")
+    
     plot_results(ratio_values, ber_values, config)
 
 if __name__ == '__main__':
