@@ -41,11 +41,20 @@ def extract_config_parameters(config: SystemConfig):
     saic_regularization = saic_cfg.regularization
     saic_thermal_noise_variance = saic_cfg.thermal_noise_variance
 
+    # temporal whitening parameters
+    temp_cfg = config.temporal_whitening
+    apply_temporal_whitening = temp_cfg.apply_temporal_whitening
+    temporal_method = temp_cfg.method
+    temporal_regularization = temp_cfg.regularization
+    temporal_thermal_noise_variance = temp_cfg.thermal_noise_variance
+    temporal_full_burst = temp_cfg.full_burst
+
     return (
         num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, mod_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, 
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
         combining_mode, irc_regularization,
-        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
+        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
+        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
     )

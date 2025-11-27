@@ -87,6 +87,30 @@ class SAICConfig(BaseModel):
         description="Estimated thermal noise variance used in bias removal."
     )
 
+
+class TemporalWhiteningConfig(BaseModel):
+    apply_temporal_whitening: bool = Field(
+        default=False,
+        description="Apply temporal whitening preprocessing before combining."
+    )
+    method: Literal['mahalanobis', 'bias_removal'] = Field(
+        default='bias_removal',
+        description="Temporal whitening method to use."
+    )
+    regularization: float = Field(
+        default=1e-6,
+        ge=0,
+        description="Regularization parameter for temporal whitening."
+    )
+    thermal_noise_variance: Optional[float] = Field(
+        default=None,
+        description="Estimated thermal noise variance (optional) used in bias removal."
+    )
+    full_burst: bool = Field(
+        default=True,
+        description="Apply whitening to full burst (True) or only TS (False)."
+    )
+
 class SystemConfig(BaseModel):
     num_interferers: int
     use_pim: bool
@@ -97,6 +121,7 @@ class SystemConfig(BaseModel):
     file_paths: FilePathsConfig
     results_output: ResultsOutputConfig = Field(default_factory=ResultsOutputConfig)
     saic: SAICConfig = Field(default_factory=SAICConfig)
+    temporal_whitening: TemporalWhiteningConfig = Field(default_factory=TemporalWhiteningConfig)
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.

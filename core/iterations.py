@@ -12,6 +12,7 @@ from receiver.DeMUX import extract_data_segments
 from scipy.signal import convolve
 import numpy as np
 from core.saic_whitening import single_antenna_processing
+from core.temporal_whitening import single_antenna_temporal_whitening
 
 def single_burst_iteration(args):
     (
@@ -20,7 +21,8 @@ def single_burst_iteration(args):
         channel_estimation_method, training_sequence_len, traceback_depth,
         num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
         combining_mode, irc_regularization,
-        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
+        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
+        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
     ) = args
     
     # TODO: uncomment second string for repeatability
@@ -66,36 +68,65 @@ def single_burst_iteration(args):
         )
 
     # 7. RECEIVER: Equalization and Decoding
-    # Optionally apply single-antenna SAIC preprocessing to each branch before combining
+    rx_ant1_proc = rx_ant1_noisy
+    h_est_ant1_proc = h_est_ant1
+
     if apply_saic_preprocessing:
-        proc_ant1, eff_ch1 = single_antenna_processing(
-            rx_ant1_noisy,
-            h_est_ant1,
+        rx_ant1_proc, h_est_ant1_proc = single_antenna_processing(
+            rx_ant1_proc,
+            h_est_ant1_proc,
             training_sequence,
             enable_saic=True,
             method=saic_method,
             regularization=saic_regularization,
             thermal_noise_variance=saic_thermal_noise_variance
         )
-        proc_ant2, eff_ch2 = single_antenna_processing(
-            rx_ant2_noisy,
-            h_est_ant2,
+
+    # Temporal whitening can be applied after SAIC (if both enabled) or standalone
+    if apply_temporal_whitening:
+        rx_ant1_proc, h_est_ant1_proc = single_antenna_temporal_whitening(
+            rx_ant1_proc,
+            h_est_ant1_proc,
+            training_sequence,
+            enable_temporal_whitening=True,
+            method=temporal_method,
+            regularization=temporal_regularization,
+            thermal_noise_variance=temporal_thermal_noise_variance,
+            full_burst=temporal_full_burst
+        )
+
+    # Antenna 2 processing
+    rx_ant2_proc = rx_ant2_noisy
+    h_est_ant2_proc = h_est_ant2
+
+    if apply_saic_preprocessing:
+        rx_ant2_proc, h_est_ant2_proc = single_antenna_processing(
+            rx_ant2_proc,
+            h_est_ant2_proc,
             training_sequence,
             enable_saic=True,
             method=saic_method,
             regularization=saic_regularization,
             thermal_noise_variance=saic_thermal_noise_variance
         )
-        # replace noisy signals and estimated channels with processed versions for combining
-        rx_ant1_for_comb = proc_ant1
-        rx_ant2_for_comb = proc_ant2
-        h_est_ant1_for_comb = eff_ch1
-        h_est_ant2_for_comb = eff_ch2
-    else:
-        rx_ant1_for_comb = rx_ant1_noisy
-        rx_ant2_for_comb = rx_ant2_noisy
-        h_est_ant1_for_comb = h_est_ant1
-        h_est_ant2_for_comb = h_est_ant2
+
+    if apply_temporal_whitening:
+        rx_ant2_proc, h_est_ant2_proc = single_antenna_temporal_whitening(
+            rx_ant2_proc,
+            h_est_ant2_proc,
+            training_sequence,
+            enable_temporal_whitening=True,
+            method=temporal_method,
+            regularization=temporal_regularization,
+            thermal_noise_variance=temporal_thermal_noise_variance,
+            full_burst=temporal_full_burst
+        )
+
+    # replace noisy signals and estimated channels with processed versions for combining
+    rx_ant1_for_comb = rx_ant1_proc
+    rx_ant2_for_comb = rx_ant2_proc
+    h_est_ant1_for_comb = h_est_ant1_proc
+    h_est_ant2_for_comb = h_est_ant2_proc
     if combining_mode == "IRC":
         # IRC MODE
         rx_combined, h_est_avg = irc_diversity_combining(

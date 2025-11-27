@@ -20,8 +20,10 @@ def simulate(config):
         channel_estimation_method, num_bursts, channel_model, 
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
         combining_mode, irc_regularization,
-        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
+        apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
+        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
     ) = extract_parameters.extract_config_parameters(config)
+    
     (
         tail_bits, num_data_bits_per_burst, training_sequence_len, 
         training_sequence, guard_period
@@ -50,6 +52,11 @@ def simulate(config):
         print(f"SAIC method:                {saic_method}")
         print(f"SAIC regularization:        {saic_regularization}")
         print(f"SAIC thermal noise var.:    {saic_thermal_noise_variance}")
+    print(f"Temporal whitening enabled: {apply_temporal_whitening}")
+    if apply_temporal_whitening:
+        print(f"Temporal method:            {temporal_method}")
+        print(f"Temporal regularization:    {temporal_regularization}")
+        print(f"Temporal thermal noise var.:{temporal_thermal_noise_variance}")
     print(f"Number of Interferers:      {num_interferers}")
     print(f"Number of Bursts:           {num_bursts}")
     print(f"Burst Symbol Rate:          {burst_symbol_rate}")
@@ -69,6 +76,10 @@ def simulate(config):
             num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
             combining_mode, irc_regularization,
             apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
+        )
+        # Append temporal whitening parameters
+        base_args = base_args + (
+            apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
         )
         
         ber = calculate_ber(base_args, num_bursts, target_ratio_db)

@@ -8,7 +8,7 @@
     "target_ratio_range_db":{
       "start": -5,
       "stop": 21,
-      "step": 0.5
+      "step": 4
     },
     "traceback_depth": 15
   },
@@ -32,7 +32,7 @@
   },
   "results_output": {
     "save_results": true,
-    "output_directory": "./results"
+    "output_directory": "./results/temporal"
   }
   ,
   "saic": {
@@ -40,5 +40,13 @@
     "method": "basic",
     "regularization": 1e-6,
     "thermal_noise_variance": 1e-6
+  }
+  ,
+  "temporal_whitening": {
+    "apply_temporal_whitening": false,
+    "method": "bias_removal",
+    "regularization": 1e-6,
+    "thermal_noise_variance": null,
+    "full_burst": true
   }
 }
