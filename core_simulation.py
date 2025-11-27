@@ -2,6 +2,8 @@
 from config import validator, loader, extract_parameters
 from transceiver.modulator import Modulator
 from channel.quadriga import load_quadriga_channel
+from channel.gen_channel import generate_cir
+from channel.extract_channel import extract_cir
 from visualisation.result import plot_results, save_results_to_csv
 from core.ber import calculate_ber
 from core.burst_info import get_burst_parameters
@@ -27,7 +29,19 @@ def simulate(config):
         training_sequence, guard_period
     ) = get_burst_parameters(burst_symbol_rate, modulation_type)
 
-    h11, h12, h21, h22 = load_quadriga_channel(channel_mat_file)
+    a, _, _ = generate_cir(channel_model=channel_model,
+                           carrier_frequency=fs_hz,
+                              num_rx_ant=2,
+                              num_tx_ant=2)
+    
+    channels_cir = extract_cir(a)
+    h11 = channels_cir['h11']
+    h12 = channels_cir['h12']
+    h21 = channels_cir['h21']
+    h22 = channels_cir['h22']
+    
+    # uncomment for using channel from quadriga
+    # h11, h12, h21, h22 = load_quadriga_channel(channel_mat_file)
     L = channel_memory
     modem = Modulator(modulation_type)
     training_sequence = modem.modulate(training_sequence)
