@@ -8,14 +8,14 @@
     "target_ratio_range_db":{
       "start": -5,
       "stop": 21,
-      "step": 4
+      "step": 2
     },
     "traceback_depth": 15
   },
   "mode_selection": {
     "calculation_mode": "CI",
     "channel_estimation_method": "ls",
-    "combining_mode": "SAIC",
+    "combining_mode": "MRC",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -32,7 +32,7 @@
   },
   "results_output": {
     "save_results": true,
-    "output_directory": "./results/temporal"
+    "output_directory": "./results/noc/MRC"
   }
   ,
   "saic": {
@@ -44,9 +44,15 @@
   ,
   "temporal_whitening": {
     "apply_temporal_whitening": false,
-    "method": "bias_removal",
+    "method": "mahalanobis",
     "regularization": 1e-6,
     "thermal_noise_variance": null,
     "full_burst": true
+  }
+  ,
+  "channel_sweep": {
+    "enabled": false,
+    "models": ["AWGN", "TU50", "EQ50", "HT100", "RA130"],
+    "model_to_file": {}
   }
 }

@@ -31,20 +31,41 @@ def simulate(config):
         training_sequence, guard_period
     ) = get_burst_parameters(burst_symbol_rate, modulation_type)
 
-    a, _, _ = generate_cir(channel_model=channel_model,
-                           carrier_frequency=fs_hz,
-                              num_rx_ant=2,
-                              num_tx_ant=2)
-    
-    channels_cir = extract_cir(a)
-    h11 = channels_cir['h11']
-    h12 = channels_cir['h12']
-    h21 = channels_cir['h21']
-    h22 = channels_cir['h22']
+    # channel memory length used when constructing simple AWGN channels
+    L = channel_memory
+
+    # Generate channel impulse responses using the internal generator.
+    # Special-case AWGN: treat as single-tap (no multipath) channel.
+    if channel_model.upper() == 'AWGN':
+        # create trivial single-tap channels with 1.0 gain on first tap
+        # shape: (L, 1) so downstream code can select a time index
+        h11 = np.zeros((L, 1), dtype=complex)
+        h12 = np.zeros((L, 1), dtype=complex)
+        h21 = np.zeros((L, 1), dtype=complex)
+        h22 = np.zeros((L, 1), dtype=complex)
+        h11[0, 0] = 1.0
+        h12[0, 0] = 1.0
+        h21[0, 0] = 1.0
+        h22[0, 0] = 1.0
+    else:
+        # set channel memory size used for shaping AWGN channels if needed
+        L = channel_memory
+
+        a, _, _ = generate_cir(
+            channel_model=channel_model,
+            carrier_frequency=fs_hz,
+            num_rx_ant=2,
+            num_tx_ant=2
+        )
+
+        channels_cir = extract_cir(a)
+        h11 = channels_cir['h11']
+        h12 = channels_cir['h12']
+        h21 = channels_cir['h21']
+        h22 = channels_cir['h22']
     
     # uncomment for using channel from quadriga
     # h11, h12, h21, h22 = load_quadriga_channel(channel_mat_file)
-    L = channel_memory
     modem = Modulator(modulation_type)
     training_sequence = modem.modulate(training_sequence)
 
@@ -164,10 +185,83 @@ def main():
             print("=" * 80)
             plot_results(comparison_files=expanded_files)
             return
+        if sys.argv[1] == '--sweep-channels':
+            # Load config first to read sweep settings
+            config_path = "./config/settings.json"
+            config = validator.validate_config(loader.ConfigLoader.load(config_path))
+
+            # Allow an optional list of models after the flag; else use config
+            sweep_args = [a for a in sys.argv[2:] if not a.startswith('-')]
+            if sweep_args:
+                models_to_run = sweep_args
+            else:
+                models_to_run = config.channel_sweep.models
+
+            if not models_to_run:
+                print("No channel models specified for sweep.")
+                sys.exit(1)
+
+            # If user supplied --sweep-plot anywhere, plot combined results at the end
+            should_plot = '--sweep-plot' in sys.argv
+
+            results_paths = []
+            results_for_plot = []
+
+            for model in models_to_run:
+                print(f"Running sweep for model: {model}")
+
+                cfg_local = config.copy(deep=True)
+                cfg_local.core_simulation_parameters = cfg_local.core_simulation_parameters.copy(update={"channel_model": model})
+
+                ratio_values, ber_values = simulate(cfg_local)
+
+                if cfg_local.results_output.save_results:
+                    csv_filepath = save_results_to_csv(ratio_values, ber_values, cfg_local, cfg_local.results_output.output_directory)
+                    results_paths.append(csv_filepath)
+                    print(f"CSV file saved: {csv_filepath}")
+
+                if should_plot:
+                    results_for_plot.append((ratio_values, ber_values, cfg_local))
+
+            if should_plot and results_for_plot:
+                # plot all results together
+                for r, b, c in results_for_plot:
+                    plot_results(r, b, c)
+
+            print("Sweep completed.")
+            if results_paths:
+                print("Saved CSV files:")
+                for p in results_paths:
+                    print(f"  - {p}")
+            return
     
     # Normal simulation mode
     config_path = "./config/settings.json"
     config = validator.validate_config(loader.ConfigLoader.load(config_path))
+
+    # If channel sweep is enabled in config, run sweep automatically (no plotting)
+    if getattr(config, 'channel_sweep', None) and getattr(config.channel_sweep, 'enabled', False):
+        models_to_run = config.channel_sweep.models
+        results_paths = []
+
+        print("Automatic channel sweep enabled in config. Running sweep for models:")
+        for model in models_to_run:
+            print(f" - {model}")
+            cfg_local = config.copy(deep=True)
+            cfg_local.core_simulation_parameters = cfg_local.core_simulation_parameters.copy(update={"channel_model": model})
+
+            ratio_values, ber_values = simulate(cfg_local)
+            if cfg_local.results_output.save_results:
+                csv_filepath = save_results_to_csv(ratio_values, ber_values, cfg_local, cfg_local.results_output.output_directory)
+                results_paths.append(csv_filepath)
+
+        print("Sweep finished.")
+        if results_paths:
+            print("Saved CSV files:")
+            for p in results_paths:
+                print(f"  - {p}")
+
+        return
     # --------------------------------------------------------------------
 
     ratio_values, ber_values = simulate(config)

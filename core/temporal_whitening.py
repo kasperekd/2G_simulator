@@ -63,7 +63,7 @@ def estimate_noise_subspace(eigenvalues, method='mdl'):
             arithmetic_mean = np.mean(eigenvalues[k:])
             geometric_mean = np.exp(np.mean(np.log(eigenvalues[k:] + 1e-10)))
 
-            mdl = (M - k) * M * np.log(arithmetic_mean / geometric_mean) +                   0.5 * k * (2*M - k) * np.log(M)
+            mdl = (M - k) * M * np.log(arithmetic_mean / geometric_mean) + 0.5 * k * (2*M - k) * np.log(M)
             mdl_values.append(mdl)
 
         num_signal_components = np.argmin(mdl_values) + 1

@@ -111,6 +111,21 @@ class TemporalWhiteningConfig(BaseModel):
         description="Apply whitening to full burst (True) or only TS (False)."
     )
 
+
+class ChannelSweepConfig(BaseModel):
+    enabled: bool = Field(
+        default=False,
+        description="Enable automatic sweep across multiple channel models."
+    )
+    models: List[Literal['AWGN', 'TU50', 'EQ50', 'HT100', 'RA130']] = Field(
+        default_factory=lambda: ['AWGN', 'TU50', 'EQ50', 'HT100', 'RA130'],
+        description="List of channel model names to sweep over when enabled."
+    )
+    model_to_file: Optional[Dict[str, str]] = Field(
+        default_factory=dict,
+        description="Optional mapping of channel model name to channel mat file path. If absent, the sweeper will try ./channel/{model}.mat."
+    )
+
 class SystemConfig(BaseModel):
     num_interferers: int
     use_pim: bool
@@ -122,6 +137,7 @@ class SystemConfig(BaseModel):
     results_output: ResultsOutputConfig = Field(default_factory=ResultsOutputConfig)
     saic: SAICConfig = Field(default_factory=SAICConfig)
     temporal_whitening: TemporalWhiteningConfig = Field(default_factory=TemporalWhiteningConfig)
+    channel_sweep: ChannelSweepConfig = Field(default_factory=ChannelSweepConfig)
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.

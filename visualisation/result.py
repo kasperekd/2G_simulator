@@ -161,7 +161,7 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 print(f"Error loading {filepath}: {e}")
                 continue
         
-        plt.xlabel('SNR (dB)', fontsize=12)
+        plt.xlabel('CI (dB)', fontsize=12)
         plt.ylabel('BER', fontsize=12)
         plt.title('BER Comparison - Multiple Configurations', fontsize=14, fontweight='bold')
         plt.legend(loc='best', fontsize=10)
