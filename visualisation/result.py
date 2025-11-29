@@ -146,8 +146,10 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 modulation = metadata.get('Modulation Type', 'Unknown')
                 combining = metadata.get('Combining Mode', 'Unknown')
                 est_method = metadata.get('Channel Estimation Method', 'Unknown')
-                
-                label = f"{modulation} ({combining}, {est_method})"
+                channel = metadata.get('Channel Model', 'Unknown')
+
+                # Include channel model in the legend label to aid comparisons
+                label = f"{modulation} ({combining}, {est_method}, {channel})"
                 
                 # Avoid log(0)
                 ber_plot = np.where(ber == 0, 1e-6, ber)
@@ -178,7 +180,7 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
         plt.semilogy(ratio_values, ber_plot, 'bo-', linewidth=2, markersize=6, alpha=0.8)
         
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
-        title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type}\n"
+        title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type} (channel: {config.core_simulation_parameters.channel_model})\n"
         title += (
             f"(Estimation: {config.mode_selection.channel_estimation_method}, "
             f"Combining: {config.mode_selection.combining_mode}, "
