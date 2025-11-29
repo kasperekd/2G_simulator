@@ -7,6 +7,7 @@ from channel.extract_channel import extract_cir
 from visualisation.result import plot_results, save_results_to_csv
 from core.ber import calculate_ber
 from core.burst_info import get_burst_parameters
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import time
@@ -72,6 +73,7 @@ def simulate(config):
     ratio_values, ber_values = np.zeros(len(target_ratio_range_db)), np.zeros(len(target_ratio_range_db))
 
     print("=" * 80)
+    print(f"STARTING SIMULATION with {cpu_count()} processes")
     print("SIMULATION CONFIGURATION")
     print("=" * 80)
     print(f"Modulation Type:            {modulation_type}")
@@ -103,24 +105,27 @@ def simulate(config):
     print("STARTING SIMULATION")
     print("=" * 80)
 
-    for i, target_ratio_db in enumerate(target_ratio_range_db):
-        base_args = (
-            target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
-            training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
-            channel_estimation_method, training_sequence_len, traceback_depth,
-            num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
-            combining_mode, irc_regularization,
-            apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
-        )
-        # Append temporal whitening parameters
-        base_args = base_args + (
-            apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
-        )
-        
-        ber = calculate_ber(base_args, num_bursts, target_ratio_db)
-        ratio_values[i] = target_ratio_db
-        ber_values[i] = ber
-        print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f}")
+    num_workers = cpu_count()
+    
+    with Pool(processes=num_workers) as pool:
+        for i, target_ratio_db in enumerate(target_ratio_range_db):
+            base_args = (
+                target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
+                training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
+                channel_estimation_method, training_sequence_len, traceback_depth,
+                num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
+                combining_mode, irc_regularization,
+                apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
+            )
+            base_args = base_args + (
+                apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
+            )
+            
+            ber = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
+            
+            ratio_values[i] = target_ratio_db
+            ber_values[i] = ber
+            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f}")
 
 
     elapsed = time.perf_counter() - start_time
