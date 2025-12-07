@@ -133,11 +133,22 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
         comparison_files: List of CSV file paths to compare
     """
     plt.figure(figsize=(12, 7))
-    colors = ['b', 'r', 'g', 'm', 'c', 'k', 'orange', 'purple']
-    markers = ['o', 's', '^', 'v', 'D', 'p', '*', 'h']
+    colors = [
+        'tab:blue','tab:orange','tab:green','tab:red','tab:purple','tab:brown',
+        'tab:pink','tab:gray','tab:olive','tab:cyan','black','orange','purple',
+        '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b'
+    ]
+
+    markers = [
+        'o','s','^','v','D','p','*','h','+','x','1','2','3','4','|','_' 
+    ]
+    linestyles = ['-', '--', '-.', ':']
     
     if comparison_files:
         # Comparison mode: load and plot multiple CSV files
+        from itertools import product
+        combos = list(product(colors, markers, linestyles))
+
         for idx, filepath in enumerate(comparison_files):
             try:
                 ratio, ber, metadata = load_results_from_csv(filepath)
@@ -154,10 +165,12 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 # Avoid log(0)
                 ber_plot = np.where(ber == 0, 1e-6, ber)
                 
+                # select style so color changes fastest, then marker, then linestyle
                 color = colors[idx % len(colors)]
-                marker = markers[idx % len(markers)]
-                plt.semilogy(ratio, ber_plot, marker=marker, linestyle='-', 
-                           linewidth=2, markersize=6, label=label, color=color, alpha=0.8)
+                marker = markers[(idx // len(colors)) % len(markers)]
+                linestyle = linestyles[(idx // (len(colors) * len(markers))) % len(linestyles)]
+                plt.semilogy(ratio, ber_plot, marker=marker, linestyle=linestyle,
+                           linewidth=2, markersize=6, label=label, color=color, alpha=0.85)
                 
             except Exception as e:
                 print(f"Error loading {filepath}: {e}")

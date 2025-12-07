@@ -8,14 +8,14 @@
     "target_ratio_range_db":{
       "start": -5,
       "stop": 21,
-      "step": 2
+      "step": 1
     },
     "traceback_depth": 15
   },
   "mode_selection": {
     "calculation_mode": "CI",
     "channel_estimation_method": "ls",
-    "combining_mode": "MRC",
+    "combining_mode": "IRC",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -32,7 +32,7 @@
   },
   "results_output": {
     "save_results": true,
-    "output_directory": "./results/noc/MRC"
+    "output_directory": "./results/10/after/IRC"
   }
   ,
   "saic": {
@@ -51,7 +51,7 @@
   }
   ,
   "channel_sweep": {
-    "enabled": false,
+    "enabled": true,
     "models": ["AWGN", "TU50", "EQ50", "HT100", "RA130"],
     "model_to_file": {}
   }
