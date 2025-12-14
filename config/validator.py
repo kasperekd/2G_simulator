@@ -36,7 +36,7 @@ class CoreParametrsConfig(BaseModel):
 class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI"]
     channel_estimation_method: Literal["ls","corr","true"] 
-    combining_mode: Literal["IRC", "MRC", "SAIC", "SINGLE"]
+    combining_mode: Literal["IRC", "MRC", "EGC", "SAIC", "SINGLE"]
     irc_regularization: float = Field(
         ge=0,
         description="IRC regularization parameter (must be >= 0)."

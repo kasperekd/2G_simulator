@@ -1,4 +1,4 @@
-from core.irc_combining import irc_diversity_combining
+from core.irc_combining import irc_corrected_process
 from transceiver.burst import create_burst
 from transceiver.generate_data import generate_data_bits
 from transceiver.interference import interference_generation
@@ -128,16 +128,29 @@ def single_burst_iteration(args):
     h_est_ant1_for_comb = h_est_ant1_proc
     h_est_ant2_for_comb = h_est_ant2_proc
     if combining_mode == "IRC":
-        # IRC MODE
-        rx_combined, h_est_avg = irc_diversity_combining(
-            rx_ant1_for_comb, rx_ant2_for_comb,
-            h_est_ant1_for_comb, h_est_ant2_for_comb,
-            training_sequence,
-            enable_irc=True,
-            regularization=irc_regularization
-        )
+        rx_combined, h_est_avg = irc_corrected_process(
+        [rx_ant1_for_comb, rx_ant2_for_comb],
+        [h_est_ant1_for_comb, h_est_ant2_for_comb],
+        training_sequence,
+        shrinkage=0.1,
+        loading_factor=0.2,
+    )
     elif combining_mode == "MRC":
-        # MRC MODE
+        rx_combined, h_est_avg = irc_corrected_process(
+        [rx_ant1_for_comb, rx_ant2_for_comb],
+        [h_est_ant1_for_comb, h_est_ant2_for_comb],
+        training_sequence,
+        shrinkage=0.1,
+        loading_factor=1.0
+    )
+        # g1 = h_est_ant1_for_comb[::-1].conj()
+        # g2 = h_est_ant2_for_comb[::-1].conj()
+        # mf1 = np.convolve(rx_ant1_for_comb, g1, mode='same')
+        # mf2 = np.convolve(rx_ant2_for_comb, g2, mode='same')
+        # rx_combined = mf1 + mf2
+        # h_est_avg = h_est_ant1_for_comb + h_est_ant2_for_comb
+    elif combining_mode == "EGC":
+        # ERC MODE
         rx_combined = (rx_ant1_for_comb + rx_ant2_for_comb) / 2
         h_est_avg = (h_est_ant1_for_comb + h_est_ant2_for_comb) / 2
     elif combining_mode == "SINGLE":

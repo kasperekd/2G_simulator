@@ -8,14 +8,14 @@
     "target_ratio_range_db":{
       "start": -5,
       "stop": 21,
-      "step": 1
+      "step": 2
     },
     "traceback_depth": 15
   },
   "mode_selection": {
     "calculation_mode": "CI",
-    "channel_estimation_method": "ls",
-    "combining_mode": "IRC",
+    "channel_estimation_method": "true",
+    "combining_mode": "MRC",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -32,7 +32,7 @@
   },
   "results_output": {
     "save_results": true,
-    "output_directory": "./results/10/after/IRC"
+    "output_directory": "./results/10/afterTRUE/MRC"
   }
   ,
   "saic": {
