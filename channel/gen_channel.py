@@ -165,6 +165,16 @@ def _generate_cir(delays, powers, carrier_freq, doppler_category, max_doppler, s
     for r in range(num_rx_ant):
         for t in range(num_tx_ant):
             for path_idx in range(num_paths):
+
+                if doppler_category[path_idx] == "JAKES":
+                    print()
+                elif doppler_category[path_idx] == "GAUSS1":
+                    print()
+                elif doppler_category[path_idx] == "GAUSS2":
+                    print()
+                else: # RICE
+                    print()
+
                 # 1. Случайные углы прихода (AOAs) равномерно от 0 до 2pi
                 alphas = np.random.uniform(0, 2 * np.pi, num_sinusoids)
                 
