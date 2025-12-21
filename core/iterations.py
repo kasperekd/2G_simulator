@@ -14,6 +14,12 @@ import numpy as np
 from core.saic_whitening import single_antenna_processing
 from core.temporal_whitening import single_antenna_temporal_whitening
 
+def estimate_antenna_correlation(h1, h2):
+    h1_norm = h1 / (np.linalg.norm(h1) + 1e-10)
+    h2_norm = h2 / (np.linalg.norm(h2) + 1e-10)
+    rho = np.abs(np.vdot(h1_norm, h2_norm))
+    return rho
+
 def single_burst_iteration(args):
     (
         target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
@@ -53,6 +59,9 @@ def single_burst_iteration(args):
     # 5. RECEIVER: Add noise
     rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k)
     rx_ant2_noisy = add_thermal_noise(rx_ant2, bs_nf_db, fs_hz, temp_k)
+
+    # rho_antennas = estimate_antenna_correlation(h_true_ant1, h_true_ant2)
+    # print(f"[Debug] Antenna correlation: {rho_antennas:.3f}")
 
     # 6. RECEIVER: Channel Estimation
     if channel_estimation_method == 'true':
@@ -132,8 +141,9 @@ def single_burst_iteration(args):
         [rx_ant1_for_comb, rx_ant2_for_comb],
         [h_est_ant1_for_comb, h_est_ant2_for_comb],
         training_sequence,
+        shrinkageMethod='oas',
         shrinkage=0.1,
-        loading_factor=0.2,
+        loading_factor=0.28,
     )
     elif combining_mode == "MRC":
         rx_combined, h_est_avg = irc_corrected_process(

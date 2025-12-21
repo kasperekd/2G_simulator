@@ -30,10 +30,15 @@ def interference_generation(s1_rx_ant1, num_interferers, h21, h22, L, channel_id
         else:
             interf_conv2_delayed = np.concatenate([interf_conv2_delayed, np.zeros(max_len - len(interf_conv2_delayed), dtype=complex)])
 
-        phase_shift = np.random.uniform(0, 2*np.pi)
-        phasor = np.exp(1j * phase_shift)
+        # phase_shift_ant1 = np.random.uniform(0, 2*np.pi)
+        # phase_shift_ant2 = np.random.uniform(0, 2*np.pi)
 
-        total_interf_rx_ant1 += interf_conv1_delayed * phasor
-        total_interf_rx_ant2 += interf_conv2_delayed * phasor
+        # phasor_ant1 = np.exp(1j * phase_shift_ant1)
+        # phasor_ant2 = np.exp(1j * phase_shift_ant2)
 
+        # total_interf_rx_ant1 += interf_conv1_delayed * phasor_ant1
+        # total_interf_rx_ant2 += interf_conv2_delayed * phasor_ant2
+        total_interf_rx_ant1 += interf_conv1_delayed
+        total_interf_rx_ant2 += interf_conv2_delayed
+        
     return total_interf_rx_ant1, total_interf_rx_ant2
