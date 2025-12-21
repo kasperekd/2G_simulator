@@ -20,7 +20,7 @@ def simulate(config):
     (
         num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, modulation_type, calculation_mode, 
-        channel_estimation_method, num_bursts, channel_model, 
+        channel_estimation_method, num_bursts, channel_model, channel_taps,
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
         combining_mode, irc_regularization,
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
@@ -54,6 +54,7 @@ def simulate(config):
 
         a, _, _ = generate_cir(
             channel_model=channel_model,
+            channel_taps=channel_taps,
             carrier_frequency=fs_hz,
             num_rx_ant=2,
             num_tx_ant=2
@@ -78,6 +79,7 @@ def simulate(config):
     print("=" * 80)
     print(f"Modulation Type:            {modulation_type}")
     print(f"Channel Model:              {channel_model}")
+    print(f"Channel Taps:               {channel_taps}")
     print(f"Channel Memory:             {channel_memory}")
     print(f"Calculation Mode:           {calculation_mode}")
     print(f"Channel Estimation Method:  {channel_estimation_method}")

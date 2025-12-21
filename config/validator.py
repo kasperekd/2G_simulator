@@ -26,6 +26,9 @@ class CoreParametrsConfig(BaseModel):
     '''Validation for core simulation'''
     modulation_type: Literal['BPSK',"GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
     channel_model: Literal["AWGN", "TU50", "EQ50", "HT100", "RA130"]
+    channel_taps: Literal[6,12] = Field(
+        description="channel taps (must be 6 or 12)."
+    )
     channel_memory: int = Field(
         ge=2,
         description="channel memory (must be >= 2)."

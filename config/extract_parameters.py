@@ -8,6 +8,7 @@ def extract_config_parameters(config: SystemConfig):
     core_parameters = config.core_simulation_parameters
     mod_type = core_parameters.modulation_type
     channel_model = core_parameters.channel_model
+    channel_taps = core_parameters.channel_taps
     channel_memory = core_parameters.channel_memory
     range_db = core_parameters.target_ratio_range_db
     target_ratio_range_db = np.arange(range_db.start, range_db.stop, range_db.step)
@@ -52,7 +53,7 @@ def extract_config_parameters(config: SystemConfig):
     return (
         num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, mod_type, calculation_mode, 
-        channel_estimation_method, num_bursts, channel_model, 
+        channel_estimation_method, num_bursts, channel_model, channel_taps, 
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
         combining_mode, irc_regularization,
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,

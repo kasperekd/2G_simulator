@@ -2,8 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+RICE = "RICE"
+JAKES = "JAKES"
+GAUSS1 = "GAUSS1"
+GAUSS2 = "GAUSS2"
+
 def generate_cir(
     channel_model='TU50',
+    channel_taps=6,
     carrier_frequency=900e6,
     sampling_rate=1e6,
     num_time_steps=100,
@@ -15,13 +21,16 @@ def generate_cir(
     Генерирует импульсную характеристику канала (CIR) для заданной модели.
     """
     
+    channel_name = channel_model[:2]
+    velocity_kmh = float(channel_model[2:])
     # Определение параметров модели канала
-    channel_params = _get_channel_parameters(channel_model)
+    channel_params = _get_channel_parameters(channel_name, channel_taps)
     delays = channel_params['delays']
     powers_db = channel_params['powers_db']
-    velocity_kmh = channel_params['velocity_kmh']
+    doppler_category = channel_params['doppler_category']
     
     powers_linear = 10**(powers_db / 10.0)
+    print(f'powers_liner = {powers_linear}\n')
     powers_linear = powers_linear / np.sum(powers_linear)
     
     velocity_ms = velocity_kmh / 3.6
@@ -39,6 +48,7 @@ def generate_cir(
     a, tau = _generate_cir(
         delays=delays,
         powers=powers_linear,
+        doppler_category=doppler_category,
         carrier_freq=carrier_frequency,
         max_doppler=max_doppler_hz,
         sampling_rate=sampling_rate,
@@ -66,59 +76,78 @@ def generate_cir(
     return a, tau, channel_info
 
 
-def _get_channel_parameters(channel_model):
+def _get_channel_parameters(channel_name, channel_taps):
     """
     Возвращает параметры задержек и мощностей для заданной модели канала.
     """
-    models = {
-        'TU50': {
-            # Typical Urban, 50 km/h
-            'delays': np.array([0.0, 0.2, 0.5, 1.6, 2.3, 5.0]) * 1e-6,
-            'powers_db': np.array([-3.0, 0.0, -2.0, -6.0, -8.0, -10.0]),
-            'velocity_kmh': 50
+    model_by_taps = {
+        6 :{
+            'RA': {
+                # Rural Area, 130 km/h
+                'delays': np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5]) * 1e-6,
+                'powers_db': np.array([0.0, -4.0, -8.0, -12.0, -16.0, -20.0]),
+                'doppler_category': np.array([RICE, JAKES, JAKES, JAKES, JAKES, JAKES])
+            },
+            'TU': {
+                # Typical Urban, 50 km/h
+                'delays': np.array([0.0, 0.2, 0.4, 1.6, 2.4, 5.0]) * 1e-6,
+                'powers_db': np.array([-3.0, 0.0, -2.0, -6.0, -8.0, -10.0]),
+                'doppler_category': np.array([JAKES, JAKES, GAUSS1, GAUSS1, GAUSS2, GAUSS2])
+            },
+            'HT': {
+                # Hilly Terrain, 100 km/h
+                'delays': np.array([0.0, 0.2, 0.4, 0.6, 15.0, 17.2]) * 1e-6,
+                'powers_db': np.array([0.0, -2.0, -4.0, -7.0, -6.0, -12.0]),
+                'doppler_category': np.array([JAKES, JAKES, JAKES, JAKES, GAUSS2, GAUSS2])
+            },
+            'EQ': {
+                # Equalization, 50 km/h
+                'delays': np.array([0.0, 3.2, 6.4, 9.6, 12.8, 16.0]) * 1e-6,
+                'powers_db': np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                'doppler_category': np.array([JAKES, JAKES, JAKES, JAKES, JAKES, JAKES])
+            },
         },
-        'TU3': {
-            # Typical Urban, 3 km/h
-            'delays': np.array([0.0, 0.2, 0.5, 1.6, 2.3, 5.0]) * 1e-6,
-            'powers_db': np.array([-3.0, 0.0, -2.0, -6.0, -8.0, -10.0]),
-            'velocity_kmh': 3
-        },
-        'RA130': {
-            # Rural Area, 130 km/h
-            'delays': np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5]) * 1e-6,
-            'powers_db': np.array([0.0, -4.0, -8.0, -12.0, -16.0, -20.0]),
-            'velocity_kmh': 130
-        },
-        'HT100': {
-            # Hilly Terrain, 100 km/h
-            'delays': np.array([0.0, 0.1, 0.3, 0.5, 15.0, 17.2]) * 1e-6,
-            'powers_db': np.array([0.0, -1.5, -4.5, -7.5, -8.0, -17.7]),
-            'velocity_kmh': 100
-        },
-        'EQ50': {
-            # Equalization, 50 km/h
-            'delays': np.array([0.0, 3.2, 6.4, 9.6, 12.8, 16.0]) * 1e-6,
-            'powers_db': np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-            'velocity_kmh': 50
-        },
+
+        12 :{
+            'TU': {
+                # Typical Urban, 50 km/h
+                'delays': np.array([0.0, 0.2, 0.4, 0.6, 0.8, 1.2, 1.4, 1.8, 2.4, 3.0, 3.2, 5.0]) * 1e-6,
+                'powers_db': np.array([-4.0, -3.0, 0.0, -2.0, -3.0, -5.0, -7.0, -5.0, -6.0, -9.0, -11.0, -10.0]),
+                'doppler_category': np.array([JAKES, JAKES, JAKES, GAUSS1, GAUSS1, GAUSS1, GAUSS1, GAUSS1, GAUSS2, GAUSS2, GAUSS2, GAUSS2])
+            },
+            'HT': {
+                # Hilly Terrain, 100 km/h
+                'delays': np.array([0.0, 0.2, 0.4, 0.6, 0.8, 2.0, 2.4, 15.0, 15.2, 15.8, 17.2, 20.0]) * 1e-6,
+                'powers_db': np.array([-10.0, -8.0, -6.0, -4.0, 0.0, 0.0, -4.0, -8.0, -9.0, -10.0, -12.0, -14.0]),
+                'doppler_category': np.array([JAKES, JAKES, JAKES, GAUSS1, GAUSS1, GAUSS1, GAUSS2, GAUSS2, GAUSS2, GAUSS2, GAUSS2, GAUSS2])
+            },
+            'EQ': {
+                # Equalization, 50 km/h
+                'delays': np.array([0.0, 3.2, 6.4, 9.6, 12.8, 16.0]) * 1e-6,
+                'powers_db': np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                'doppler_category': np.array([JAKES, JAKES, JAKES, JAKES, JAKES, JAKES, JAKES, JAKES, JAKES, JAKES, JAKES, JAKES])
+            },
+        }
     }
 
+    if channel_name not in model_by_taps[channel_taps]:
+        raise ValueError(f"Неизвестная модель канала: {channel_name}. Доступны: {list(model_by_taps[channel_taps].keys())}")
     
-    if channel_model not in models:
-        raise ValueError(f"Неизвестная модель канала: {channel_model}. Доступны: {list(models.keys())}")
-    
-    return models[channel_model]
+    return model_by_taps[channel_taps][channel_name]
 
 
-def _generate_cir(delays, powers, carrier_freq, max_doppler, sampling_rate,
+def _generate_cir(delays, powers, carrier_freq, doppler_category, max_doppler, sampling_rate,
                   num_time_steps, num_tx_ant, num_rx_ant, random_seed):
     """
-    Внутренняя функция для генерации импульсной характеристики.
+    Генерация импульсной характеристики методом сложения синусоид (Sum of Sinusoids).
+    Моделирует классический Jakes-спектр (Rayleigh fading).
     """
     batch_size = 1
     num_rx_groups = 1 
     num_tx_groups = 1
     num_paths = len(delays)
+    
+    num_sinusoids = 20 
     
     if random_seed is not None:
         np.random.seed(random_seed)
@@ -127,28 +156,39 @@ def _generate_cir(delays, powers, carrier_freq, max_doppler, sampling_rate,
     time_samples = np.arange(num_time_steps) / sampling_rate
     
     # Инициализация массива коэффициентов
-    # Shape: [batch, num_rx_groups, num_rx_ant, num_tx_groups, num_tx_ant, num_paths, num_time_steps]
     a = np.zeros([batch_size, num_rx_groups, num_rx_ant, num_tx_groups, num_tx_ant,
                   num_paths, num_time_steps], dtype=np.complex64)
     
-    # Генерация уникальных федингов для каждой пары антенн (Tx -> Rx)
+    norm_factor = 1.0 / np.sqrt(num_sinusoids)
+
+    # Генерация уникальных федингов для каждой пары антенн (Tx -> Rx) и каждого луча (path)
     for r in range(num_rx_ant):
         for t in range(num_tx_ant):
             for path_idx in range(num_paths):
-                # Генерация Rayleigh fading с Doppler-эффектом
-                doppler_shift = max_doppler * (2 * np.random.rand() - 1)
-                phase = 2 * np.pi * doppler_shift * time_samples
+                # 1. Случайные углы прихода (AOAs) равномерно от 0 до 2pi
+                alphas = np.random.uniform(0, 2 * np.pi, num_sinusoids)
                 
-                # I и Q компоненты (Rayleigh fading)
-                i_comp = np.random.randn(num_time_steps)
-                q_comp = np.random.randn(num_time_steps)
+                # 2. Случайные начальные фазы равномерно от 0 до 2pi
+                phis = np.random.uniform(0, 2 * np.pi, num_sinusoids)
                 
-                # Комплексная огибающая с нормализацией по мощности
-                tap_response = (i_comp + 1j * q_comp) * np.exp(1j * phase)
-                tap_response *= np.sqrt(powers[path_idx] / 2)
+                # 3. Допплеровские частоты для каждой синусоиды
+                # f_n = f_max * cos(alpha_n)
+                doppler_freqs = max_doppler * np.cos(alphas)
                 
-                # Записываем в массив (индексы групп жестко заданы 0, т.к. num_rx_groups=1)
-                a[0, 0, r, 0, t, path_idx, :] = tap_response
+                # 4. Формирование волны (векторизованно по времени и синусоидам)
+                # Argument: 2*pi*f_n*t + phi_n
+                # Shape: (num_sinusoids, num_time_steps)
+                argument = 2 * np.pi * doppler_freqs[:, np.newaxis] * time_samples[np.newaxis, :] + phis[:, np.newaxis]
+                
+                # Сумма комплексных экспонент
+                fading_waveform = np.sum(np.exp(1j * argument), axis=0)
+                
+                # 5. Нормализация и масштабирование по мощности луча
+                # Итоговая мощность должна быть равна powers[path_idx]
+                tap_response = fading_waveform * norm_factor * np.sqrt(powers[path_idx])
+                
+                # Записываем в массив
+                a[0, 0, r, 0, t, path_idx, :] = tap_response.astype(np.complex64)
     
     # Задержки (одинаковые для всех пар антенн в этой модели)
     tau = np.zeros([batch_size, num_rx_groups, num_rx_ant, num_tx_groups, num_tx_ant, num_paths], dtype=np.float32)
