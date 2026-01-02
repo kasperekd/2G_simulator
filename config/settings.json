@@ -4,7 +4,7 @@
   "core_simulation_parameters": {
     "modulation_type": "BPSK",
     "channel_model": "TU50",
-    "channel_taps": 6,
+    "channel_taps": 12,
     "channel_memory": 3,
     "target_ratio_range_db":{
       "start": -5,
@@ -16,7 +16,7 @@
   "mode_selection": {
     "calculation_mode": "CI",
     "channel_estimation_method": "ls",
-    "combining_mode": "SINGLE",
+    "combining_mode": "SAIC",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {

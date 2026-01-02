@@ -135,75 +135,116 @@ def _get_channel_parameters(channel_name, channel_taps):
     
     return model_by_taps[channel_taps][channel_name]
 
+def jakes_fading(num_time_steps, sampling_rate, f_max, num_sinusoids):
+    t = np.arange(num_time_steps) / sampling_rate
+    n = np.arange(1, num_sinusoids + 1)
 
-def _generate_cir(delays, powers, carrier_freq, doppler_category, max_doppler, sampling_rate,
-                  num_time_steps, num_tx_ant, num_rx_ant, random_seed):
+    alpha_n = np.pi * n / (num_sinusoids + 1)
+    phi_n = np.random.uniform(0, 2*np.pi, num_sinusoids)
+
+    fading = np.zeros(num_time_steps, dtype=np.complex64)
+
+    for k in range(num_sinusoids):
+        fading += np.exp(
+            1j * (2*np.pi*f_max*np.cos(alpha_n[k]) * t + phi_n[k])
+        )
+
+    fading /= np.sqrt(num_sinusoids)
+    return fading
+
+
+def gaussian_fading(num_time_steps, sampling_rate, sigma_f, num_sinusoids):
+    t = np.arange(num_time_steps) / sampling_rate
+
+    f_n = np.random.normal(0.0, sigma_f, num_sinusoids)
+    phi_n = np.random.uniform(0, 2*np.pi, num_sinusoids)
+
+    fading = np.sum(
+        np.exp(1j * (2*np.pi*f_n[:, None] * t[None, :] + phi_n[:, None])),
+        axis=0
+    )
+
+    fading /= np.sqrt(num_sinusoids)
+    return fading
+
+def _generate_cir(
+    delays,
+    powers,
+    doppler_category,
+    carrier_freq,
+    max_doppler,
+    sampling_rate,
+    num_time_steps,
+    num_tx_ant,
+    num_rx_ant,
+    random_seed=None
+):
     """
-    Генерация импульсной характеристики методом сложения синусоид (Sum of Sinusoids).
-    Моделирует классический Jakes-спектр (Rayleigh fading).
+    COST 207 channel impulse response generator (WSSUS).
     """
-    batch_size = 1
-    num_rx_groups = 1 
-    num_tx_groups = 1
-    num_paths = len(delays)
-    
-    num_sinusoids = 20 
-    
     if random_seed is not None:
         np.random.seed(random_seed)
-    
-    # Временная ось
-    time_samples = np.arange(num_time_steps) / sampling_rate
-    
-    # Инициализация массива коэффициентов
-    a = np.zeros([batch_size, num_rx_groups, num_rx_ant, num_tx_groups, num_tx_ant,
-                  num_paths, num_time_steps], dtype=np.complex64)
-    
-    norm_factor = 1.0 / np.sqrt(num_sinusoids)
 
-    # Генерация уникальных федингов для каждой пары антенн (Tx -> Rx) и каждого луча (path)
+    num_paths = len(delays)
+    num_sinusoids = 32
+
+    a = np.zeros(
+        [1, 1, num_rx_ant, 1, num_tx_ant, num_paths, num_time_steps],
+        dtype=np.complex64
+    )
+
+    tau = np.zeros(
+        [1, 1, num_rx_ant, 1, num_tx_ant, num_paths],
+        dtype=np.float32
+    )
+
+    t = np.arange(num_time_steps) / sampling_rate
+
     for r in range(num_rx_ant):
-        for t in range(num_tx_ant):
-            for path_idx in range(num_paths):
+        for tx in range(num_tx_ant):
+            for l in range(num_paths):
 
-                if doppler_category[path_idx] == "JAKES":
-                    print()
-                elif doppler_category[path_idx] == "GAUSS1":
-                    print()
-                elif doppler_category[path_idx] == "GAUSS2":
-                    print()
-                else: # RICE
-                    print()
+                if doppler_category[l] == JAKES:
+                    fading = jakes_fading(
+                        num_time_steps,
+                        sampling_rate,
+                        max_doppler,
+                        num_sinusoids
+                    )
 
-                # 1. Случайные углы прихода (AOAs) равномерно от 0 до 2pi
-                alphas = np.random.uniform(0, 2 * np.pi, num_sinusoids)
-                
-                # 2. Случайные начальные фазы равномерно от 0 до 2pi
-                phis = np.random.uniform(0, 2 * np.pi, num_sinusoids)
-                
-                # 3. Допплеровские частоты для каждой синусоиды
-                # f_n = f_max * cos(alpha_n)
-                doppler_freqs = max_doppler * np.cos(alphas)
-                
-                # 4. Формирование волны (векторизованно по времени и синусоидам)
-                # Argument: 2*pi*f_n*t + phi_n
-                # Shape: (num_sinusoids, num_time_steps)
-                argument = 2 * np.pi * doppler_freqs[:, np.newaxis] * time_samples[np.newaxis, :] + phis[:, np.newaxis]
-                
-                # Сумма комплексных экспонент
-                fading_waveform = np.sum(np.exp(1j * argument), axis=0)
-                
-                # 5. Нормализация и масштабирование по мощности луча
-                # Итоговая мощность должна быть равна powers[path_idx]
-                tap_response = fading_waveform * norm_factor * np.sqrt(powers[path_idx])
-                
-                # Записываем в массив
-                a[0, 0, r, 0, t, path_idx, :] = tap_response.astype(np.complex64)
-    
-    # Задержки (одинаковые для всех пар антенн в этой модели)
-    tau = np.zeros([batch_size, num_rx_groups, num_rx_ant, num_tx_groups, num_tx_ant, num_paths], dtype=np.float32)
-    for r in range(num_rx_ant):
-        for t in range(num_tx_ant):
-            tau[0, 0, r, 0, t, :] = delays
-    
+                elif doppler_category[l] in (GAUSS1, GAUSS2):
+                    # COST 207: Gaussian PSD — разная ширина
+                    sigma_f = (
+                        0.1 * max_doppler if doppler_category[l] == GAUSS1
+                        else 0.3 * max_doppler
+                    )
+                    fading = gaussian_fading(
+                        num_time_steps,
+                        sampling_rate,
+                        sigma_f,
+                        num_sinusoids
+                    )
+
+                elif doppler_category[l] == RICE:
+                    # Типовой K-фактор (можно параметризовать)
+                    K = 6.0
+                    los = np.exp(1j * 2*np.pi*max_doppler*t)
+                    rayleigh = jakes_fading(
+                        num_time_steps,
+                        sampling_rate,
+                        max_doppler,
+                        num_sinusoids
+                    )
+                    fading = (
+                        np.sqrt(K/(K+1)) * los +
+                        np.sqrt(1/(K+1)) * rayleigh
+                    )
+
+                else:
+                    raise ValueError("Unknown Doppler category")
+
+                # Масштабирование по мощности луча
+                a[0, 0, r, 0, tx, l, :] = fading * np.sqrt(powers[l])
+                tau[0, 0, r, 0, tx, l] = delays[l]
+
     return a, tau
