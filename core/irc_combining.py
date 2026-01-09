@@ -153,11 +153,7 @@ def estimate_noise_covariance_improved(
         F = (tr_Q / NR) * np.eye(NR, dtype=complex)
         
         # Shrinkage
-        Q_shrink = (1 - shrinkageFactor) * Q_sample + shrinkageFactor * F
-        
-        # Additional diagonal loading (legacy)
-        loadingFactor = 0.2  # Fixed value from previous implementation
-        Q = (1 - loadingFactor) * Q_shrink + loadingFactor * F
+        Q = (1 - shrinkageFactor) * Q_sample + shrinkageFactor * F
         
     elif shrinkageMethod == 'none':
         Q = Q_sample
@@ -167,18 +163,111 @@ def estimate_noise_covariance_improved(
     
     return Q
 
+def adaptive_diagonal_loading(Q_sample, target_condition_number=10.0):
+    """
+    Compute optimal loading factor to achieve target condition number.
+    
+    Args:
+        Q_sample: Sample covariance matrix (NR x NR)
+        target_condition_number: Desired cond(Q) after regularization (default: 10.0)
+    
+    Returns:
+        Q_reg: Regularized covariance matrix
+        alpha: Loading factor used
+        metrics: Dict with diagnostics
+    """
+    NR = Q_sample.shape[0]
+    
+    # Compute eigenvalues
+    eigvals = np.linalg.eigvalsh(Q_sample)
+    lambda_max = eigvals[-1].real
+    lambda_min = eigvals[0].real
+    current_cond = lambda_max / (lambda_min + 1e-10)
+    
+    # If already well-conditioned, no loading needed
+    if current_cond <= target_condition_number:
+        metrics = {
+            'cond_before': current_cond,
+            'cond_after': current_cond,
+            'alpha': 0.0,
+            'method': 'no_loading_needed'
+        }
+        return Q_sample, 0.0, metrics
+    
+    # Shrinkage target: scaled identity
+    tr_Q = np.trace(Q_sample).real
+    avg_eigval = tr_Q / NR
+    
+    # Binary search for optimal alpha
+    alpha_low, alpha_high = 0.0, 1.0
+    alpha_opt = 0.0
+    
+    for iteration in range(20):
+        alpha = (alpha_low + alpha_high) / 2
+        
+        # Regularized eigenvalues: lambda_reg = (1-alpha)*lambda + alpha*avg
+        lambda_reg_min = (1 - alpha) * lambda_min + alpha * avg_eigval
+        lambda_reg_max = (1 - alpha) * lambda_max + alpha * avg_eigval
+        cond_reg = lambda_reg_max / (lambda_reg_min + 1e-10)
+        
+        if cond_reg > target_condition_number:
+            alpha_low = alpha  # Need more regularization
+        else:
+            alpha_high = alpha
+        
+        alpha_opt = alpha
+        
+        # Early stopping if close enough
+        if abs(cond_reg - target_condition_number) < 0.5:
+            break
+    
+    # Apply loading
+    F = avg_eigval * np.eye(NR, dtype=complex)
+    Q_reg = (1 - alpha_opt) * Q_sample + alpha_opt * F
+    
+    # Final metrics
+    cond_final = np.linalg.cond(Q_reg)
+    metrics = {
+        'cond_before': current_cond,
+        'cond_after': cond_final,
+        'alpha': alpha_opt,
+        'method': 'adaptive',
+        'eigvals_before': eigvals.tolist(),
+        'eigvals_after': np.linalg.eigvalsh(Q_reg).tolist()
+    }
+    
+    return Q_reg, alpha_opt, metrics
+
 def irc_corrected_process(
     received_signals_antennas,
     channel_estimates_antennas,
     known_training_sequence,
-    shrinkageMethod='oas',
-    shrinkage=0.1,
-    loading_factor=0.2
+    shrinkageMethod='oas',           # Stage 1: 'oas', 'rblw', 'diagonal_loading', 'none'
+    loadingMethod='adaptive',        # Stage 2: 'adaptive', 'legacy', 'none'
+    target_condition_number=10.0,    # For adaptive loading
+    shrinkage=0.1,                   # For diagonal_loading (Stage 1)
+    loading_factor=0.2,              # For legacy loading (Stage 2)
+    verbose=False
 ):
+    """
+    IRC combining with two-stage regularization.
+    
+    Stage 1 (Shrinkage): Statistical correction via shrinkageMethod
+    Stage 2 (Loading): Numerical stabilization via loadingMethod
+    
+    Args:
+        shrinkageMethod: 'oas', 'rblw', 'diagonal_loading', 'none'
+        loadingMethod: 'adaptive', 'legacy', 'none'
+        target_condition_number: Target cond(Q) for adaptive loading
+        shrinkage: Shrinkage factor for 'diagonal_loading' method
+        loading_factor: Loading factor for 'legacy' loading
+        verbose: Print diagnostics
+    """
     N_R = len(received_signals_antennas)
     L = len(channel_estimates_antennas[0])
     
-    Q = estimate_noise_covariance_improved(
+    # Shrinkage
+    Q_shrunk = estimate_noise_covariance_improved(
         received_signals_antennas,
         known_training_sequence,
         channel_estimates_antennas,
@@ -186,17 +275,52 @@ def irc_corrected_process(
         shrinkageFactor=shrinkage
     )
     
-    # 2. Adaptive Diagonal Loading
-    avg_noise_power = np.trace(Q).real / N_R
-    # Q_reg = (1-LF)*Q + LF*sigma^2*I
-    Q_reg = (1 - loading_factor) * Q + loading_factor * avg_noise_power * np.eye(N_R)
+    if verbose:
+        cond_shrunk = np.linalg.cond(Q_shrunk)
+        print(f"[IRC Stage 1 - {shrinkageMethod}] cond(Q) = {cond_shrunk:.2f}")
+    
+    # Loading
+    if loadingMethod == 'adaptive':
+        current_cond = np.linalg.cond(Q_shrunk)
+        
+        if current_cond > target_condition_number:
+            Q_reg, alpha_opt, metrics = adaptive_diagonal_loading(
+                Q_shrunk, 
+                target_condition_number=target_condition_number
+            )
+            if verbose:
+                print(f"[IRC Stage 2 - Adaptive] Applied loading: alpha={alpha_opt:.4f}, "
+                      f"cond {metrics['cond_before']:.1f} → {metrics['cond_after']:.1f}")
+        else:
+            Q_reg = Q_shrunk
+            if verbose:
+                print(f"[IRC Stage 2 - Adaptive] No loading needed (cond={current_cond:.1f} < target={target_condition_number:.1f})")
+    
+    elif loadingMethod == 'legacy':
+        avg_noise_power = np.trace(Q_shrunk).real / N_R
+        Q_reg = (1 - loading_factor) * Q_shrunk + loading_factor * avg_noise_power * np.eye(N_R, dtype=complex)
+        
+        if verbose:
+            cond_after = np.linalg.cond(Q_reg)
+            print(f"[IRC Stage 2 - Legacy] Loading factor={loading_factor:.2f}, "
+                  f"cond {cond_shrunk:.1f} → {cond_after:.1f}")
+    
+    elif loadingMethod == 'none':
+        Q_reg = Q_shrunk
+        if verbose:
+            print(f"[IRC Stage 2 - None] No loading applied")
+    
+    else:
+        raise ValueError(f"Unknown loadingMethod: {loadingMethod}")
     
     try:
         Q_inv = np.linalg.inv(Q_reg)
     except np.linalg.LinAlgError:
+        if verbose:
+            print("[IRC Warning] Q_reg singular, using pseudoinverse")
         Q_inv = np.linalg.pinv(Q_reg)
-        
-    # 3.
+    
+    # Compute IRC filters
     irc_filters = []
     for i in range(N_R):
         g_i = np.zeros(L, dtype=complex)
@@ -205,21 +329,23 @@ def irc_corrected_process(
             h_j_matched = channel_estimates_antennas[j][::-1].conj()
             g_i += v_ij * h_j_matched
         irc_filters.append(g_i)
-        
-    # 4.
+    
+    # Apply IRC
     signal_length = len(received_signals_antennas[0])
-    combined_signal = np.zeros(signal_length, dtype=complex)
+    combined = np.zeros(signal_length, dtype=complex)
+    
     for i in range(N_R):
         filtered = np.convolve(received_signals_antennas[i], irc_filters[i], mode='same')
-        combined_signal += filtered
-        
-    conv_len = 2 * L - 1
-    effective_channel = np.zeros(conv_len, dtype=complex)
-    for i in range(N_R):
-        conv_result = np.convolve(channel_estimates_antennas[i], irc_filters[i], mode='full')
-        effective_channel += conv_result
-        
-    start_idx = L // 2
-    effective_channel_final = effective_channel[start_idx:start_idx + L]
+        combined += filtered
     
-    return combined_signal, effective_channel_final
+    # Effective channel
+    conv_len = 2 * L - 1
+    h_eff_full = np.zeros(conv_len, dtype=complex)
+    for i in range(N_R):
+        conv = np.convolve(channel_estimates_antennas[i], irc_filters[i], mode='full')
+        h_eff_full += conv
+    
+    start_idx = L // 2
+    h_eff = h_eff_full[start_idx : start_idx + L]
+    
+    return combined, h_eff
