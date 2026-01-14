@@ -14,6 +14,9 @@ import numpy as np
 from core.saic_whitening import single_antenna_processing
 from core.temporal_whitening import single_antenna_temporal_whitening
 
+import scipy.io as spio
+import os
+
 def estimate_antenna_correlation(h1, h2):
     h1_norm = h1 / (np.linalg.norm(h1) + 1e-10)
     h2_norm = h2 / (np.linalg.norm(h2) + 1e-10)
@@ -49,6 +52,24 @@ def single_burst_iteration(args):
         s1_rx_ant1, num_interferers, h21, h22,
         L, channel_idx, modem, len(tx_burst)
     )
+
+    if getattr(config, "DEBUG_INTERFERENCE", True):
+        debug_mat_file = "debug_interference_check.mat"
+        if not os.path.exists(debug_mat_file):
+            try:
+                mat_data = {
+                    'signal_ant1': s1_rx_ant1,
+                    'signal_ant2': s1_rx_ant2,
+                    'interf_ant1': total_interf_rx_ant1,
+                    'interf_ant2': total_interf_rx_ant2,
+                    'tx_burst': tx_burst,
+                    'fs': fs_hz,
+                    'mod_type': modem.type
+                }
+                spio.savemat(debug_mat_file, mat_data)
+                print(f"\n[DEBUG] Signals exported to {debug_mat_file}\n")
+            except Exception as e:
+                print(f"Failed to export mat file: {e}")
 
     # 4. SCALING AND COMBINING
     rx_ant1, rx_ant2 = scaling_and_combing(
