@@ -5,7 +5,7 @@ import itertools
 def calculate_ber(pool, base_args, num_bursts, target_ratio_db):
     def run_batch(count):
         if count <= 0:
-            return 0, 0
+            return 0, 0, 0.0, 0.0
         
         chunk_size = max(1, count // (cpu_count() * 4))
         
@@ -13,31 +13,38 @@ def calculate_ber(pool, base_args, num_bursts, target_ratio_db):
         
         batch_errors = sum(r[0] for r in results)
         batch_bits = sum(r[1] for r in results)
-        return batch_errors, batch_bits
+        
+        batch_sum_mse_ls = sum(r[2] for r in results)
+        batch_sum_mse_lmmse = sum(r[3] for r in results)
+        
+        return batch_errors, batch_bits, batch_sum_mse_ls, batch_sum_mse_lmmse
 
     # 1. Pilot run
     test_iterations = 25
-    total_errors, total_bits = run_batch(test_iterations)
+    total_errors, total_bits, total_mse_ls, total_mse_lmmse = run_batch(test_iterations)
     
     current_ber = total_errors / total_bits if total_bits > 0 else 0.5
 
-    # 2. Determine how many more bursts to calculate
+    # 2. Determine target bursts
     target_bursts = num_bursts
     
     # User logic: if BER < 10e-5, increase the number of bursts
     if current_ber < 10e-5:
-        # print(f"DEBUG: Low BER detected ({current_ber}), increasing precision.")
-        plus_burst = 500
-        target_bursts = num_bursts + plus_burst
+        target_bursts = num_bursts + 500
 
-    # 3. Calculate the remaining bursts (Main run)
-    # We do not discard the test results but add the missing ones
+    # 3. Main run
     remaining_bursts = target_bursts - test_iterations
-    
+
     if remaining_bursts > 0:
-        add_errors, add_bits = run_batch(remaining_bursts)
-        total_errors += add_errors
+        add_err, add_bits, add_mse_ls, add_mse_lmmse = run_batch(remaining_bursts)
+        total_errors += add_err
         total_bits += add_bits
+        total_mse_ls += add_mse_ls
+        total_mse_lmmse += add_mse_lmmse
 
     final_ber = total_errors / total_bits if total_bits > 0 else 0.5
-    return final_ber
+    
+    final_avg_mse_ls = total_mse_ls / target_bursts
+    final_avg_mse_lmmse = total_mse_lmmse / target_bursts
+
+    return final_ber, final_avg_mse_ls, final_avg_mse_lmmse

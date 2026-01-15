@@ -32,6 +32,7 @@
   },
   "results_output": {
     "save_results": true,
+    "save_mse_debug": false, 
     "output_directory": "./results/xxxx/after/adaptive_loading/"
   }
   ,

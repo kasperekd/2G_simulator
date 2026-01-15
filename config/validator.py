@@ -35,7 +35,7 @@ class CoreParametrsConfig(BaseModel):
 
 class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI"]
-    channel_estimation_method: Literal["ls","corr","true"] 
+    channel_estimation_method: Literal["ls","corr","true","lmmse"] 
     combining_mode: Literal["IRC", "MRC", "EGC", "SAIC", "SINGLE"]
     irc_regularization: float = Field(
         ge=0,
@@ -61,6 +61,10 @@ class ResultsOutputConfig(BaseModel):
     save_results: bool = Field(
         default=False,
         description="Whether to save simulation results to CSV file."
+    )
+    save_mse_debug: bool = Field(
+        default=False,
+        description="Calculate and save Channel Estimation."
     )
     output_directory: str = Field(
         default="./results",

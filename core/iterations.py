@@ -5,9 +5,12 @@ from transceiver.interference import interference_generation
 
 from receiver.noise import add_thermal_noise
 from receiver.scaling_and_combing import scaling_and_combing
-from receiver.channel_estimation import estimate_channel_ls
+from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse
 from receiver.viterbi import mlse_viterbi_decode
 from receiver.DeMUX import extract_data_segments
+
+import csv
+import multiprocessing
 
 from scipy.signal import convolve
 import numpy as np
@@ -85,17 +88,41 @@ def single_burst_iteration(args):
     # print(f"[Debug] Antenna correlation: {rho_antennas:.3f}")
 
     # 6. RECEIVER: Channel Estimation
-    if channel_estimation_method == 'true':
-        h_est_ant1, h_est_ant2 = h_true_ant1, h_true_ant2
-    else:
-        ts_start_idx = len(original_data_symbols) // 2 + len(tail_symbols)
-        ts_end_idx = ts_start_idx + len(training_sequence)
-        h_est_ant1 = estimate_channel_ls(
-            rx_ant1_noisy[ts_start_idx: ts_end_idx + L - 1], training_sequence, L
+    ts_start_idx = len(original_data_symbols) // 2 + len(tail_symbols)
+    ts_end_idx = ts_start_idx + len(training_sequence)
+    
+    r_ant1_ts = rx_ant1_noisy[ts_start_idx: ts_end_idx + L - 1]
+    
+    mse_ls = 0.0
+    mse_lmmse = 0.0
+    
+    save_mse = config.results_output.save_mse_debug    
+    
+    if save_mse:
+        h_lmmse_debug = estimate_channel_lmmse(
+            r_ant1_ts, 
+            training_sequence, 
+            L, 
+            snr_db=target_ratio_db 
         )
-        h_est_ant2 = estimate_channel_ls(
-            rx_ant2_noisy[ts_start_idx: ts_end_idx + L - 1], training_sequence, L
-        )
+
+        h_ls_debug, _ = estimate_channel_ls(r_ant1_ts, training_sequence, L)
+        mse_ls = calculate_mse(h_true_ant1, h_ls_debug)
+        mse_lmmse = calculate_mse(h_true_ant1, h_lmmse_debug)
+
+    if channel_estimation_method == 'lmmse':
+        h_est_ant1 = estimate_channel_lmmse(r_ant1_ts, training_sequence, L, snr_db=15.0)
+        # Ant 2
+        r_ant2_ts = rx_ant2_noisy[ts_start_idx: ts_end_idx + L - 1]
+        h_est_ant2 = estimate_channel_lmmse(r_ant2_ts, training_sequence, L, snr_db=15.0)
+    elif channel_estimation_method == 'ls':
+        h_est_ant1, _ = estimate_channel_ls(r_ant1_ts, training_sequence, L)
+        # Ant 2
+        r_ant2_ts = rx_ant2_noisy[ts_start_idx: ts_end_idx + L - 1]
+        h_est_ant2, _ = estimate_channel_ls(r_ant2_ts, training_sequence, L)
+    else: # true
+        h_est_ant1 = h_true_ant1
+        h_est_ant2 = h_true_ant2
 
     # 7. RECEIVER: Equalization and Decoding
     rx_ant1_proc = rx_ant1_noisy
@@ -212,4 +239,4 @@ def single_burst_iteration(args):
     # 8. BER CALCULATION
     errors = np.sum(data_bits != decoded_bits[:len(data_bits)])
     bits = len(data_bits)
-    return errors, bits
+    return errors, bits, mse_ls, mse_lmmse
