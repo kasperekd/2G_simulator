@@ -2,10 +2,10 @@
   "num_interferers": 1,
   "use_pim": false,
   "core_simulation_parameters": {
-    "modulation_type": "BPSK",
+    "modulation_type": "GMSK",
     "channel_model": "TU50",
     "channel_memory": 3,
-    "target_ratio_range_db":{
+    "target_ratio_range_db": {
       "start": -5,
       "stop": 21,
       "step": 2
@@ -33,26 +33,29 @@
   "results_output": {
     "save_results": true,
     "output_directory": "./results/10/afterTRUE/MRC"
-  }
-  ,
+  },
   "saic": {
     "apply_saic_preprocessing": false,
     "method": "basic",
     "regularization": 1e-6,
     "thermal_noise_variance": 1e-6
-  }
-  ,
+  },
   "temporal_whitening": {
     "apply_temporal_whitening": false,
     "method": "mahalanobis",
     "regularization": 1e-6,
     "thermal_noise_variance": null,
     "full_burst": true
-  }
-  ,
+  },
   "channel_sweep": {
     "enabled": true,
-    "models": ["AWGN", "TU50", "EQ50", "HT100", "RA130"],
+    "models": [
+      "AWGN",
+      "TU50",
+      "EQ50",
+      "HT100",
+      "RA130"
+    ],
     "model_to_file": {}
   }
 }
