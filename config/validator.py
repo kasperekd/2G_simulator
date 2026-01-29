@@ -37,6 +37,10 @@ class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI"]
     channel_estimation_method: Literal["ls","corr","true","lmmse"] 
     combining_mode: Literal["IRC", "ST-IRC", "MRC", "EGC", "SAIC", "SINGLE"]
+    st_irc_method: Literal["direct", "ar-prewhitening"] = Field(
+        default="direct",
+        description="Method for Space-Time IRC: 'direct' (MMSE weights) or 'ar-prewhitening' (Cholesky noise whitening)."
+    )
     irc_regularization: float = Field(
         ge=0,
         description="IRC regularization parameter (must be >= 0)."
