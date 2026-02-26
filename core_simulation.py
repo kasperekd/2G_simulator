@@ -1,4 +1,6 @@
 # Import functions from modules 
+import csv
+from datetime import datetime
 from config import validator, loader, extract_parameters
 from transceiver.modulator import Modulator
 from channel.quadriga import load_quadriga_channel
@@ -14,6 +16,20 @@ import time
 import sys
 import glob
 from pathlib import Path
+
+def save_mse_comparison(ratios, mse_ls, mse_lmmse, config):
+    output_dir = Path(config.results_output.output_directory)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = output_dir / f"mse_debug_{timestamp}.csv"
+    
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['CI_dB', 'MSE_LS', 'MSE_LMMSE', 'Gain_dB'])
+        for r, mls, mlmmse in zip(ratios, mse_ls, mse_lmmse):
+            gain = 10 * np.log10(mls / (mlmmse + 1e-20)) if mlmmse > 0 else 0
+            writer.writerow([r, mls, mlmmse, gain])
+    print(f"MSE Debug stats saved to: {filepath}")
 
 def simulate(config):
     start_time = time.perf_counter()
@@ -71,7 +87,10 @@ def simulate(config):
     modem = Modulator(modulation_type)
     training_sequence = modem.modulate(training_sequence)
 
-    ratio_values, ber_values = np.zeros(len(target_ratio_range_db)), np.zeros(len(target_ratio_range_db))
+    ratio_values = np.zeros(len(target_ratio_range_db))
+    ber_values = np.zeros(len(target_ratio_range_db))
+    mse_ls_values = np.zeros(len(target_ratio_range_db))
+    mse_lmmse_values = np.zeros(len(target_ratio_range_db))
 
     print("=" * 80)
     print(f"STARTING SIMULATION with {cpu_count()} processes")
@@ -123,17 +142,22 @@ def simulate(config):
                 apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
             )
             
-            ber = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
+            ber, avg_mse_ls, avg_mse_lmmse = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
             
             ratio_values[i] = target_ratio_db
             ber_values[i] = ber
-            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f}")
+            mse_ls_values[i] = avg_mse_ls
+            mse_lmmse_values[i] = avg_mse_lmmse
+            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f} | MSE(LS)={avg_mse_ls:.4f}, MSE(LMMSE)={avg_mse_lmmse:.4f}")
 
 
     elapsed = time.perf_counter() - start_time
     print("=" * 80)
     print(f"Simulation completed in {elapsed:.2f} seconds")
     print("=" * 80)
+
+    if config.results_output.save_mse_debug:
+        save_mse_comparison(ratio_values, mse_ls_values, mse_lmmse_values, config)
 
     return np.array(ratio_values), np.array(ber_values)
 

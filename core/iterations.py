@@ -1,18 +1,31 @@
 from core.irc_combining import irc_corrected_process
+from core.st_irc_combining import st_irc_process
 from transceiver.burst import create_burst
 from transceiver.generate_data import generate_data_bits
 from transceiver.interference import interference_generation
 
 from receiver.noise import add_thermal_noise
 from receiver.scaling_and_combing import scaling_and_combing
-from receiver.channel_estimation import estimate_channel_ls
+from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse
 from receiver.viterbi import mlse_viterbi_decode
 from receiver.DeMUX import extract_data_segments
+
+import csv
+import multiprocessing
 
 from scipy.signal import convolve
 import numpy as np
 from core.saic_whitening import single_antenna_processing
 from core.temporal_whitening import single_antenna_temporal_whitening
+
+import scipy.io as spio
+import os
+
+def estimate_antenna_correlation(h1, h2):
+    h1_norm = h1 / (np.linalg.norm(h1) + 1e-10)
+    h2_norm = h2 / (np.linalg.norm(h2) + 1e-10)
+    rho = np.abs(np.vdot(h1_norm, h2_norm))
+    return rho
 
 def single_burst_iteration(args):
     (
@@ -44,6 +57,24 @@ def single_burst_iteration(args):
         L, channel_idx, modem, len(tx_burst)
     )
 
+    if getattr(config, "DEBUG_INTERFERENCE", True):
+        debug_mat_file = "debug_interference_check.mat"
+        if not os.path.exists(debug_mat_file):
+            try:
+                mat_data = {
+                    'signal_ant1': s1_rx_ant1,
+                    'signal_ant2': s1_rx_ant2,
+                    'interf_ant1': total_interf_rx_ant1,
+                    'interf_ant2': total_interf_rx_ant2,
+                    'tx_burst': tx_burst,
+                    'fs': fs_hz,
+                    'mod_type': modem.type
+                }
+                spio.savemat(debug_mat_file, mat_data)
+                print(f"\n[DEBUG] Signals exported to {debug_mat_file}\n")
+            except Exception as e:
+                print(f"Failed to export mat file: {e}")
+
     # 4. SCALING AND COMBINING
     rx_ant1, rx_ant2 = scaling_and_combing(
         s1_rx_ant1, s1_rx_ant2, target_ratio_db,calculation_mode, bs_nf_db,
@@ -54,18 +85,45 @@ def single_burst_iteration(args):
     rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k)
     rx_ant2_noisy = add_thermal_noise(rx_ant2, bs_nf_db, fs_hz, temp_k)
 
+    # rho_antennas = estimate_antenna_correlation(h_true_ant1, h_true_ant2)
+    # print(f"[Debug] Antenna correlation: {rho_antennas:.3f}")
+
     # 6. RECEIVER: Channel Estimation
-    if channel_estimation_method == 'true':
-        h_est_ant1, h_est_ant2 = h_true_ant1, h_true_ant2
-    else:
-        ts_start_idx = len(original_data_symbols) // 2 + len(tail_symbols)
-        ts_end_idx = ts_start_idx + len(training_sequence)
-        h_est_ant1 = estimate_channel_ls(
-            rx_ant1_noisy[ts_start_idx: ts_end_idx + L - 1], training_sequence, L
+    ts_start_idx = len(original_data_symbols) // 2 + len(tail_symbols)
+    ts_end_idx = ts_start_idx + len(training_sequence)
+    
+    r_ant1_ts = rx_ant1_noisy[ts_start_idx: ts_end_idx + L - 1]
+    
+    mse_ls = 0.0
+    mse_lmmse = 0.0
+    
+    save_mse = config.results_output.save_mse_debug    
+    
+    if save_mse:
+        h_lmmse_debug = estimate_channel_lmmse(
+            r_ant1_ts, 
+            training_sequence, 
+            L, 
+            snr_db=target_ratio_db 
         )
-        h_est_ant2 = estimate_channel_ls(
-            rx_ant2_noisy[ts_start_idx: ts_end_idx + L - 1], training_sequence, L
-        )
+
+        h_ls_debug, _ = estimate_channel_ls(r_ant1_ts, training_sequence, L)
+        mse_ls = calculate_mse(h_true_ant1, h_ls_debug)
+        mse_lmmse = calculate_mse(h_true_ant1, h_lmmse_debug)
+
+    if channel_estimation_method == 'lmmse':
+        h_est_ant1 = estimate_channel_lmmse(r_ant1_ts, training_sequence, L, snr_db=15.0)
+        # Ant 2
+        r_ant2_ts = rx_ant2_noisy[ts_start_idx: ts_end_idx + L - 1]
+        h_est_ant2 = estimate_channel_lmmse(r_ant2_ts, training_sequence, L, snr_db=15.0)
+    elif channel_estimation_method == 'ls':
+        h_est_ant1, _ = estimate_channel_ls(r_ant1_ts, training_sequence, L)
+        # Ant 2
+        r_ant2_ts = rx_ant2_noisy[ts_start_idx: ts_end_idx + L - 1]
+        h_est_ant2, _ = estimate_channel_ls(r_ant2_ts, training_sequence, L)
+    else: # true
+        h_est_ant1 = h_true_ant1
+        h_est_ant2 = h_true_ant2
 
     # 7. RECEIVER: Equalization and Decoding
     rx_ant1_proc = rx_ant1_noisy
@@ -132,9 +190,20 @@ def single_burst_iteration(args):
         [rx_ant1_for_comb, rx_ant2_for_comb],
         [h_est_ant1_for_comb, h_est_ant2_for_comb],
         training_sequence,
+        shrinkageMethod='oas',
         shrinkage=0.1,
-        loading_factor=0.2,
-    )
+        loading_factor=0.28,
+        )
+    elif combining_mode == "ST-IRC":
+        # Используем 1 временной тап (M=1), итого 4 виртуальные антенны
+        rx_combined, h_est_avg = st_irc_process(
+            [rx_ant1_for_comb, rx_ant2_for_comb],
+            [h_est_ant1_for_comb, h_est_ant2_for_comb],
+            training_sequence,
+            M_taps=1,
+            shrinkageMethod='oas',
+            loading_factor=0.28  # Регуляризация важна, т.к. матрица 4x4
+        )
     elif combining_mode == "MRC":
         rx_combined, h_est_avg = irc_corrected_process(
         [rx_ant1_for_comb, rx_ant2_for_comb],
@@ -181,4 +250,4 @@ def single_burst_iteration(args):
     # 8. BER CALCULATION
     errors = np.sum(data_bits != decoded_bits[:len(data_bits)])
     bits = len(data_bits)
-    return errors, bits
+    return errors, bits, mse_ls, mse_lmmse
