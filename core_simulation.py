@@ -71,7 +71,7 @@ def simulate(config):
         a, _, _ = generate_cir(
             channel_model=channel_model,
             channel_taps=channel_taps,
-            carrier_frequency=fs_hz,
+            sampling_rate=fs_hz,
             num_rx_ant=2,
             num_tx_ant=2
         )
