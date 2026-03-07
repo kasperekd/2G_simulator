@@ -2,9 +2,10 @@
   "num_interferers": 1,
   "use_pim": false,
   "core_simulation_parameters": {
+    "seed": 111,
     "modulation_type": "BPSK",
     "channel_model": "TU50",
-    "channel_taps": 12,
+    "channel_taps": 6,
     "channel_memory": 3,
     "target_ratio_range_db":{
       "start": -5,
@@ -34,7 +35,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/15/lmmse"
+    "output_directory": "./results/111"
   }
   ,
   "saic": {

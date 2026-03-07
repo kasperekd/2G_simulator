@@ -1,9 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import math
-
-RICE = "RICE"
-CLASS = "CLASS"
+from multiprocessing import Pool
+from scipy.special import j0
 
 def generate_cir(
     channel_model='TU50',
@@ -11,8 +9,8 @@ def generate_cir(
     frequency_c=1800e6,
     frequency_s=1083.3333e3,
     num_time_steps=50000,
-    random_seed=42,
-    num_sinusoids=32,
+    rng=None,
+    num_sinusoids=256,
     rice_k_factor=10.0
 ):
     """
@@ -21,7 +19,6 @@ def generate_cir(
         H  : (Nt, L) комплексная TDL-матрица
         tau: (L,) задержки в секундах
     """
-    print(f"carrier frequency = {frequency_c}",)
     # 1. Разбор модели
     channel_name = channel_model[:2]
     velocity_kmh = float(channel_model[2:])
@@ -42,7 +39,6 @@ def generate_cir(
     # 3. Вычисление Допплера
     c = 3e8
     frequency_doppler = (velocity_kmh / 3.6) * (frequency_c / c)
-    print(f"frequency doppler = {frequency_doppler}")
 
     # 4. Временная ось
     Ts = 1.0 / frequency_s
@@ -54,17 +50,19 @@ def generate_cir(
 
     H = np.zeros((num_time_steps, num_paths), dtype=complex)
 
+    path_rngs = rng.spawn(num_paths)
+
     for path_idx in range(num_paths):
-        rng = np.random.default_rng(random_seed + path_idx)
+        current_path_rng = path_rngs[path_idx]
         # Угловой сдвиг для каждого луча (WSSUS)
-        theta_offset = rng.uniform(0, 2*np.pi)
+        theta_offset = current_path_rng.uniform(0, 2*np.pi)
         theta_l = theta + theta_offset
         
         # Доплер частоты для каждого луча
         f_ln = frequency_doppler * np.cos(theta_l)
         
         # Случайные фазы
-        phi = rng.uniform(0, 2*np.pi, size=num_sinusoids)
+        phi = current_path_rng.uniform(0, 2*np.pi, size=num_sinusoids)
         
         # Формирование фазовой матрицы
         phase = 2*np.pi * t[:, None] * f_ln[None, :] + phi[None, :]
@@ -80,19 +78,23 @@ def generate_cir(
         
         # RICE для первого луча (если включено)
         if is_rice_first_path and path_idx == 0:
-            # LOS компонента: мощность LOS / (LOS + scattered) = K/(K+1)
+
             los_power = rice_k_factor_liner / (rice_k_factor_liner + 1)
             scattered_power = 1 / (rice_k_factor_liner + 1)
-            
-            # Нормализуем разбросанную компоненту под её долю мощности
+
             scattered_component *= np.sqrt(scattered_power)
-            
-            # LOS компонента (постоянная амплитуда + случайная фаза)
+
             los_amplitude = np.sqrt(los_power)
-            los_phase = rng.uniform(0, 2*np.pi)
-            los_component = los_amplitude * np.exp(1j * los_phase)
-            
-            # Итоговая Rician компонента
+            los_phase = current_path_rng.uniform(0, 2*np.pi)
+
+            # LOS угол
+            los_angle = current_path_rng.uniform(0, 2*np.pi)
+            f_los = frequency_doppler * np.cos(los_angle)
+
+            los_component = los_amplitude * np.exp(
+                1j * (2*np.pi * f_los * t + los_phase)
+            )
+
             H[:, path_idx] = los_component + scattered_component
         else:
             # Обычный Rayleigh
@@ -103,6 +105,7 @@ def generate_cir(
         H[:, path_idx] *= np.sqrt(path_power)
 
     return H, np.array(delays)
+
 
 def get_channel_parameters(channel_name, channel_taps):
     """
@@ -165,17 +168,177 @@ def get_channel_parameters(channel_name, channel_taps):
     
     return model_by_taps[channel_taps][channel_name]
 
-def compute_acf_fft(x, unbiased=True):
-    x = np.asarray(x)
-    N = len(x)
-    X = np.fft.fft(x, n=2*N)
-    acf = np.fft.ifft(X * np.conj(X))[:N]  # комплексная АКФ
+def _generate_single_cir(args):
+    # Теперь мы получаем уже готовый уникальный rng для этой итерации
+    idx, child_rng, gen_kwargs = args
+    
+    kwargs = gen_kwargs.copy()
+    # Передаем rng напрямую в функцию (убедитесь, что generate_cir его принимает)
+    kwargs["rng"] = child_rng 
+    
+    return generate_cir(**kwargs)
 
-    if unbiased:
-        acf /= (N - np.arange(N))          # деление на число пар (N-k)
+def generate_multiple_cir(
+    num_realizations,
+    num_processes=4,
+    base_seed=42,
+    **generate_cir_kwargs
+):
+    print("=" * 80)
+    print("GENERATE CIR in progress")
+    print("=" * 80)
 
-    acf /= acf[0]                          # нормировка к 1 на нуле
-    return acf
+    # 1. Создаем корневой генератор
+    root_rng = np.random.default_rng(base_seed)
+    
+    # 2. Порождаем N независимых дочерних генераторов
+    # Каждый из них гарантированно даст уникальную последовательность
+    child_rngs = root_rng.spawn(num_realizations)
+
+    # 3. Подготавливаем задачи
+    tasks = [
+        (idx, child_rngs[idx], generate_cir_kwargs)
+        for idx in range(num_realizations)
+    ]
+
+    with Pool(num_processes) as pool:
+        results = pool.map(_generate_single_cir, tasks)
+
+    H_list = [r[0] for r in results]
+    tau = results[0][1]
+
+    return H_list, tau
+
+def compute_acf_stable(x):
+    x = x - np.mean(x)
+    res = np.correlate(x, x, mode='full')
+    res = res[res.size // 2:]
+    return res / res[0]
+
+
+# if __name__ == "__main__":
+#     channel_model = "TU50"
+#     frequency = 1800e6
+#     velocity_kmh = float(channel_model[2:]) 
+#     v_ms = velocity_kmh / 3.6
+#     c = 3e8
+#     fd = (v_ms * frequency) / c  
+    
+#     frequency_s = 1083.333e3
+#     dt = 1 / frequency_s  
+    
+#     sin_values = np.arange(8, 1024, 8) 
+#     mse_results = []
+
+#     for sin in sin_values:
+#         print(f"sin = {sin}")
+#         H, tau = generate_cir(
+#             channel_model=channel_model,
+#             channel_taps=6,
+#             frequency_c=frequency,
+#             frequency_s=frequency_s,
+#             random_seed=42,
+#             num_sinusoids=sin
+#         )
+        
+#         h_first_tap = H[:, 0]
+#         n = len(h_first_tap)
+#         # Ограничиваем лаги, чтобы оценка ACF была стабильной (например, до n/10)
+#         max_lag = int(n / 10)
+#         lags = np.arange(0, max_lag)
+        
+#         # Вычисляем выборочную ACF
+#         acf = []
+#         for lag in lags:
+#             if lag == 0:
+#                 corr = np.mean(np.abs(h_first_tap)**2)
+#             else:
+#                 corr = np.mean(h_first_tap[lag:] * np.conj(h_first_tap[:-lag]))
+#             acf.append(corr)
+        
+#         # Нормируем и берем вещественную часть
+#         acf_sim = np.real(np.array(acf) / acf[0])
+        
+#         # Вычисляем теоретическую ACF для тех же моментов времени
+#         t_lags = lags * dt
+#         acf_theory = j0(2 * np.pi * fd * t_lags)
+        
+#         # Расчет MSE (Mean Squared Error)
+#         mse = np.mean((acf_sim - acf_theory)**2)
+#         mse_results.append(mse)
+
+#     # Построение графика MSE
+#     plt.figure(figsize=(10, 6))
+#     plt.plot(sin_values, mse_results, 'o-', linewidth=2, markersize=8)
+    
+#     plt.yscale('log') # Логарифмическая шкала часто нагляднее для MSE
+#     plt.title(f'MSE of ACF vs Number of Sinusoids ({channel_model})')
+#     plt.xlabel('Number of Sinusoids')
+#     plt.ylabel('Mean Squared Error (MSE)')
+#     plt.grid(True, which='both', linestyle='--')
+#     plt.show()
+ 
+
+# def main():
+
+#     # ---- параметры канала ----
+#     channel_model = "TU50"
+#     channel_taps = 6
+
+#     # ---- параметры сигнала ----
+#     frequency_c = 1800e6
+#     frequency_s = 1083.3333e3
+#     num_time_steps = 50000
+
+#     # ---- параметры генерации ----
+#     num_sinusoids = 1024
+#     rice_k_factor = 10
+
+#     # ---- параметры параллелизма ----
+#     num_realizations = 4      # для MIMO 2x2
+#     num_processes = 4
+
+#     print("Generating CIR realizations...\n")
+
+#     # ---------------- генерация CIR ----------------
+#     H_list, tau = generate_multiple_cir(
+#         num_realizations=num_realizations,
+#         num_processes=num_processes,
+#         channel_model=channel_model,
+#         channel_taps=channel_taps,
+#         frequency_c=frequency_c,
+#         frequency_s=frequency_s,
+#         num_time_steps=num_time_steps,
+#         num_sinusoids=num_sinusoids,
+#         rice_k_factor=rice_k_factor
+#     )
+
+#     print(f"\nGenerated {len(H_list)} CIR realizations")
+
+#     # ---------------- извлечение каналов ----------------
+#     channels = extract_cir(H_list)
+
+#     print("\nChannels extracted:\n")
+
+#     for key, value in channels.items():
+#         print(f"{key} -> shape {value.shape}")
+
+#     # ---------------- пример доступа ----------------
+#     h11 = channels["h11"]
+
+#     print("\nExample channel:")
+#     print("h11 shape:", h11.shape)
+
+#     # paths x time
+#     num_paths, num_time = h11.shape
+
+#     print(f"paths = {num_paths}")
+#     print(f"time samples = {num_time}")
+
+
+# if __name__ == "__main__":
+#     main()
+
 
 
 if __name__ == "__main__":
@@ -183,13 +346,14 @@ if __name__ == "__main__":
     frequency = 1800e6
     velocity_kmh = float(channel_model[2:])
     frequency_s = 1083.333e3
+    rng = np.random.default_rng(42)
     H, tau = generate_cir(
         channel_model=channel_model,
-        channel_taps=6,
+        channel_taps=12,
         frequency_c=frequency,
         frequency_s=frequency_s,
-        random_seed=42,
-        num_sinusoids=2048
+        rng=rng,
+        num_sinusoids=2048*2
     )
     print(H.shape)
     # ГРАФИКИ
@@ -273,6 +437,8 @@ if __name__ == "__main__":
     ax.set_title(f"3D Power Delay Profile {channel_model}")
 
     fig.colorbar(surf, ax=ax, label="Power (dB)")
+    # elev — угол над горизонтом (высота), azim — поворот вокруг оси Z
+    ax.view_init(elev=30, azim=-60) 
 
     # ACF
     from scipy.special import j0
@@ -280,7 +446,7 @@ if __name__ == "__main__":
     h = H[:, 0]
     h = h - np.mean(h)
 
-    acf = compute_acf_fft(h)
+    acf = compute_acf_stable(h)
 
     lags = np.arange(len(acf)) / frequency_s
 

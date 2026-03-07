@@ -11,7 +11,7 @@ def generate_cir(
     channel_model='TU50',
     channel_taps=6,
     carrier_frequency=900e6,
-    sampling_rate=1e6,
+    sampling_rate=1083333.33,
     num_time_steps=100,
     num_tx_ant=1,
     num_rx_ant=1,

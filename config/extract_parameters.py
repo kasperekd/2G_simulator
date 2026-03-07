@@ -6,6 +6,7 @@ def extract_config_parameters(config: SystemConfig):
 
     # core parameters
     core_parameters = config.core_simulation_parameters
+    seed = core_parameters.seed
     mod_type = core_parameters.modulation_type
     channel_model = core_parameters.channel_model
     channel_taps = core_parameters.channel_taps
@@ -51,7 +52,7 @@ def extract_config_parameters(config: SystemConfig):
     temporal_full_burst = temp_cfg.full_burst
 
     return (
-        num_interferers, channel_mat_file, channel_memory, 
+        seed, num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, mod_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, channel_taps, 
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,

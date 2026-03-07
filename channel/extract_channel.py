@@ -1,33 +1,45 @@
-def extract_cir(a):
+def extract_cir(H_list, num_rx_ant=2, num_tx_ant=2):
     """
-    Извлекает канальные матрицы для каждой пары антенн из массива CIR 'a'.
-    
-    Параметры:
+    Разбивает список CIR на каналы h11, h12, h21, h22.
+
+    Parameters
     ----------
-    a : np.ndarray
-        Массив CIR с формой:
-        [batch, num_rx_groups, num_rx_ant, num_tx_groups, num_tx_ant, num_paths, num_time_steps]
-        
-    Возвращает:
-    -----------
+    H_list : list[np.ndarray]
+
+        Каждый элемент:
+        H.shape = [num_time_steps, num_paths]
+
+    num_rx_ant : int
+    num_tx_ant : int
+
+    Returns
+    -------
     channel_dict : dict
-        Словарь, где ключи — это названия каналов ('h11', 'h12', 'h21', 'h22' и т.д.),
-        а значения — матрицы CIR для этой пары антенн.
-        Размер каждой матрицы: [num_paths, num_time_steps]
+
+        {
+            'h11': [num_paths, num_time_steps],
+            'h12': [num_paths, num_time_steps],
+            'h21': [num_paths, num_time_steps],
+            'h22': [num_paths, num_time_steps]
+        }
     """
-    # Определяем количество антенн из формы массива
-    num_rx_ant = a.shape[2]
-    num_tx_ant = a.shape[4]
-    
+
+    if len(H_list) != num_rx_ant * num_tx_ant:
+        raise ValueError(
+            "Количество CIR не соответствует числу каналов"
+        )
+
     channel_dict = {}
-    
+    idx = 0
+
     for r in range(num_rx_ant):
         for t in range(num_tx_ant):
+
             key = f"h{r+1}{t+1}"
-            
-            # Извлекаем матрицу: [num_paths, num_time_steps]
-            # Фиксируем batch=0, rx_group=0, tx_group=0
-            channel_matrix = a[0, 0, r, 0, t, :, :]
-            channel_dict[key] = channel_matrix
-            
+
+            # транспонируем как в исходной функции
+            channel_dict[key] = H_list[idx].T
+
+            idx += 1
+
     return channel_dict
