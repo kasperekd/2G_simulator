@@ -34,7 +34,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/16/ar2"
+    "output_directory": "./results/noise2"
   }
   ,
   "saic": {
