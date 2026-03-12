@@ -18,6 +18,7 @@
     "calculation_mode": "CI",
     "channel_estimation_method": "lmmse",
     "combining_mode": "ST-IRC",
+    "st_irc_method": "direct",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -35,7 +36,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/111"
+    "output_directory": "./results/15/lmmse"
   }
   ,
   "saic": {

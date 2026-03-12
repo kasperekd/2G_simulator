@@ -1,5 +1,6 @@
 from core.irc_combining import irc_corrected_process
 from core.st_irc_combining import st_irc_process
+from core.ar_whitening import ar_prewhitening_process
 from transceiver.burst import create_burst
 from transceiver.generate_data import generate_data_bits
 from transceiver.interference import interference_generation
@@ -196,14 +197,24 @@ def single_burst_iteration(args):
         )
     elif combining_mode == "ST-IRC":
         # Используем 1 временной тап (M=1), итого 4 виртуальные антенны
-        rx_combined, h_est_avg = st_irc_process(
-            [rx_ant1_for_comb, rx_ant2_for_comb],
-            [h_est_ant1_for_comb, h_est_ant2_for_comb],
-            training_sequence,
-            M_taps=1,
-            shrinkageMethod='oas',
-            loading_factor=0.28  # Регуляризация важна, т.к. матрица 4x4
-        )
+        method = getattr(config.mode_selection, 'st_irc_method', 'ar-prewhitening')
+        if method == 'ar-prewhitening':
+            rx_combined, h_est_avg = ar_prewhitening_process(
+                [rx_ant1_for_comb, rx_ant2_for_comb],
+                [h_est_ant1_for_comb, h_est_ant2_for_comb],
+                training_sequence,
+                M_taps=1,
+                loading_factor=0.1 
+            )
+        elif method == 'direct':
+            rx_combined, h_est_avg = st_irc_process(
+                [rx_ant1_for_comb, rx_ant2_for_comb],
+                [h_est_ant1_for_comb, h_est_ant2_for_comb],
+                training_sequence,
+                M_taps=1,
+                shrinkageMethod='oas',
+                loading_factor=0.28  # Регуляризация важна, т.к. матрица 4x4
+            )
     elif combining_mode == "MRC":
         rx_combined, h_est_avg = irc_corrected_process(
         [rx_ant1_for_comb, rx_ant2_for_comb],

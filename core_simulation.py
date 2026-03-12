@@ -107,6 +107,10 @@ def simulate(config):
     print(f"Combining Mode:             {combining_mode}")
     if combining_mode == "IRC":
         print(f"IRC Regularization:         {irc_regularization}")
+    if combining_mode == "ST-IRC":
+        st_irc_method = getattr(config.mode_selection, 'st_irc_method', 'ar-prewhitening')
+        print(f"ST-IRC Method:              {st_irc_method}")
+        print(f"IRC Regularization:         {irc_regularization}")
     print(f"SAIC preprocessing enabled: {apply_saic_preprocessing}")
     if apply_saic_preprocessing:
         print(f"SAIC method:                {saic_method}")
