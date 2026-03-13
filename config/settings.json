@@ -36,7 +36,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/15/lmmse"
+    "output_directory": "./results/16/ar2"
   }
   ,
   "saic": {

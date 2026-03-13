@@ -6,7 +6,7 @@ from transceiver.generate_data import generate_data_bits
 from transceiver.interference import interference_generation
 
 from receiver.noise import add_thermal_noise
-from receiver.scaling_and_combing import scaling_and_combing
+from receiver.scaling_and_combing import scaling_combining_and_noise
 from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse
 from receiver.viterbi import mlse_viterbi_decode
 from receiver.DeMUX import extract_data_segments
@@ -77,9 +77,9 @@ def single_burst_iteration(args):
                 print(f"Failed to export mat file: {e}")
 
     # 4. SCALING AND COMBINING
-    rx_ant1, rx_ant2 = scaling_and_combing(
-        s1_rx_ant1, s1_rx_ant2, target_ratio_db,calculation_mode, bs_nf_db,
-        fs_hz, temp_k,total_interf_rx_ant1, total_interf_rx_ant2
+    rx_ant1, rx_ant2 = scaling_combining_and_noise(
+        s1_rx_ant1, s1_rx_ant2, total_interf_rx_ant1, total_interf_rx_ant2, 
+        target_ratio_db,calculation_mode, constant_snr_db=20.0, constant_ci_db=20.0
     )
 
     # 5. RECEIVER: Add noise

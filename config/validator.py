@@ -38,7 +38,7 @@ class CoreParametrsConfig(BaseModel):
     traceback_depth: int
 
 class ModeSelectionConfig(BaseModel):
-    calculation_mode: Literal["SINR","CI"]
+    calculation_mode: Literal["SINR","CI", "SNR"]
     channel_estimation_method: Literal["ls","corr","true","lmmse"] 
     combining_mode: Literal["IRC", "ST-IRC", "MRC", "EGC", "SAIC", "SINGLE"]
     st_irc_method: Literal["direct", "ar-prewhitening"] = Field(
