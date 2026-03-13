@@ -54,6 +54,8 @@ class PhyLayerParametersConfig(BaseModel):
     bs_nf_db: float
     fs_hz: float
     temp_k: int
+    snr: int
+    ci: int
 
 class BurstStructParametersConfig(BaseModel):
     burst_symbol_rate: Literal["normal","higher"]    

@@ -27,6 +27,8 @@ def extract_config_parameters(config: SystemConfig):
     bs_nf_db = physical_layer_parameters.bs_nf_db
     fs_hz = physical_layer_parameters.fs_hz
     temp_k = physical_layer_parameters.temp_k
+    snr = physical_layer_parameters.snr
+    ci = physical_layer_parameters.ci
 
     # burst structure parameters
     burst_structure_parameters = config.burst_structure_parameters
@@ -52,7 +54,7 @@ def extract_config_parameters(config: SystemConfig):
     temporal_full_burst = temp_cfg.full_burst
 
     return (
-        seed, num_interferers, channel_mat_file, channel_memory, 
+        seed, snr, ci, num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, mod_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, channel_taps, 
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,

@@ -15,16 +15,18 @@
     "traceback_depth": 15
   },
   "mode_selection": {
-    "calculation_mode": "CI",
+    "calculation_mode": "SNR",
     "channel_estimation_method": "lmmse",
-    "combining_mode": "ST-IRC",
+    "combining_mode": "EGC",
     "st_irc_method": "direct",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
     "bs_nf_db": 3.0,
     "fs_hz": 1083333.33,
-    "temp_k": 300
+    "temp_k": 300,
+    "snr": 15,
+    "ci": 15
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
@@ -36,7 +38,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/16/ar2"
+    "output_directory": "./results/111.7"
   }
   ,
   "saic": {

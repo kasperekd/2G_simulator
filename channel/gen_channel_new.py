@@ -9,7 +9,7 @@ def generate_cir(
     frequency_c=1800e6,
     frequency_s=1083.3333e3,
     num_time_steps=50000,
-    rng=None,
+    seed=111,
     num_sinusoids=256,
     rice_k_factor=10.0
 ):
@@ -50,19 +50,17 @@ def generate_cir(
 
     H = np.zeros((num_time_steps, num_paths), dtype=complex)
 
-    path_rngs = rng.spawn(num_paths)
-
     for path_idx in range(num_paths):
-        current_path_rng = path_rngs[path_idx]
+        np.random.seed(seed + path_idx)
         # Угловой сдвиг для каждого луча (WSSUS)
-        theta_offset = current_path_rng.uniform(0, 2*np.pi)
+        theta_offset = np.random.uniform(0, 2*np.pi)
         theta_l = theta + theta_offset
         
         # Доплер частоты для каждого луча
         f_ln = frequency_doppler * np.cos(theta_l)
         
         # Случайные фазы
-        phi = current_path_rng.uniform(0, 2*np.pi, size=num_sinusoids)
+        phi = np.random.uniform(0, 2*np.pi, size=num_sinusoids)
         
         # Формирование фазовой матрицы
         phase = 2*np.pi * t[:, None] * f_ln[None, :] + phi[None, :]
@@ -85,10 +83,10 @@ def generate_cir(
             scattered_component *= np.sqrt(scattered_power)
 
             los_amplitude = np.sqrt(los_power)
-            los_phase = current_path_rng.uniform(0, 2*np.pi)
+            los_phase = np.random.uniform(0, 2*np.pi)
 
             # LOS угол
-            los_angle = current_path_rng.uniform(0, 2*np.pi)
+            los_angle = np.random.uniform(0, 2*np.pi)
             f_los = frequency_doppler * np.cos(los_angle)
 
             los_component = los_amplitude * np.exp(
@@ -169,35 +167,27 @@ def get_channel_parameters(channel_name, channel_taps):
     return model_by_taps[channel_taps][channel_name]
 
 def _generate_single_cir(args):
-    # Теперь мы получаем уже готовый уникальный rng для этой итерации
-    idx, child_rng, gen_kwargs = args
+    idx, current_seed, gen_kwargs = args
     
     kwargs = gen_kwargs.copy()
-    # Передаем rng напрямую в функцию (убедитесь, что generate_cir его принимает)
-    kwargs["rng"] = child_rng 
+    kwargs["seed"] = current_seed 
     
     return generate_cir(**kwargs)
+
 
 def generate_multiple_cir(
     num_realizations,
     num_processes=4,
-    base_seed=42,
+    base_seed=111,
     **generate_cir_kwargs
 ):
     print("=" * 80)
     print("GENERATE CIR in progress")
     print("=" * 80)
 
-    # 1. Создаем корневой генератор
-    root_rng = np.random.default_rng(base_seed)
-    
-    # 2. Порождаем N независимых дочерних генераторов
-    # Каждый из них гарантированно даст уникальную последовательность
-    child_rngs = root_rng.spawn(num_realizations)
-
-    # 3. Подготавливаем задачи
+    # Подготавливаем задачи: для каждой итерации считаем seed со сдвигом 20
     tasks = [
-        (idx, child_rngs[idx], generate_cir_kwargs)
+        (idx, base_seed + idx * 40, generate_cir_kwargs)
         for idx in range(num_realizations)
     ]
 
@@ -215,7 +205,9 @@ def compute_acf_stable(x):
     res = res[res.size // 2:]
     return res / res[0]
 
-
+# ================================================================================
+# Построение графиков, проверка работоспособности
+# ================================================================================
 # if __name__ == "__main__":
 #     channel_model = "TU50"
 #     frequency = 1800e6
@@ -341,133 +333,133 @@ def compute_acf_stable(x):
 
 
 
-if __name__ == "__main__":
-    channel_model = "TU50"
-    frequency = 1800e6
-    velocity_kmh = float(channel_model[2:])
-    frequency_s = 1083.333e3
-    rng = np.random.default_rng(42)
-    H, tau = generate_cir(
-        channel_model=channel_model,
-        channel_taps=12,
-        frequency_c=frequency,
-        frequency_s=frequency_s,
-        rng=rng,
-        num_sinusoids=2048*2
-    )
-    print(H.shape)
-    # ГРАФИКИ
-    Nt, L = H.shape
-    Ts = 1 / frequency_s
-    time = np.arange(Nt) * Ts
-    delay = tau * 1e6
+# if __name__ == "__main__":
+#     channel_model = "TU50"
+#     frequency = 1800e6
+#     velocity_kmh = float(channel_model[2:])
+#     frequency_s = 1083.333e3
+#     rng = np.random.default_rng(42)
+#     H, tau = generate_cir(
+#         channel_model=channel_model,
+#         channel_taps=12,
+#         frequency_c=frequency,
+#         frequency_s=frequency_s,
+#         rng=rng,
+#         num_sinusoids=2048*2
+#     )
+#     print(H.shape)
+#     # ГРАФИКИ
+#     Nt, L = H.shape
+#     Ts = 1 / frequency_s
+#     time = np.arange(Nt) * Ts
+#     delay = tau * 1e6
 
-    fig = plt.figure(figsize=(10,7))
-    ax = fig.add_subplot(111, projection='3d')
+#     fig = plt.figure(figsize=(10,7))
+#     ax = fig.add_subplot(111, projection='3d')
 
-    for l in range(L):
-        ax.plot(
-            time,
-            np.ones_like(time) * delay[l],
-            np.abs(H[:, l]),
-            linewidth=1.0
-        )
+#     for l in range(L):
+#         ax.plot(
+#             time,
+#             np.ones_like(time) * delay[l],
+#             np.abs(H[:, l]),
+#             linewidth=1.0
+#         )
 
-    ax.set_xlabel("t / s")
-    ax.set_ylabel("τ / µs")
-    ax.set_zlabel("|h(τ,t)|")
-    ax.set_title("Unit impulse response of channel")
+#     ax.set_xlabel("t / s")
+#     ax.set_ylabel("τ / µs")
+#     ax.set_zlabel("|h(τ,t)|")
+#     ax.set_title("Unit impulse response of channel")
 
-    # ===== FFT по времени =====
-    fs = frequency_s
-    Nfft = 65536
+#     # ===== FFT по времени =====
+#     fs = frequency_s
+#     Nfft = 65536
 
-    S = np.fft.fftshift(np.fft.fft(H, n=Nfft, axis=0), axes=0)
-    S_power = np.abs(S)**2
-    S_power_dB = 10 * np.log10(S_power + 1e-12)  # dB, защита от нулей
+#     S = np.fft.fftshift(np.fft.fft(H, n=Nfft, axis=0), axes=0)
+#     S_power = np.abs(S)**2
+#     S_power_dB = 10 * np.log10(S_power + 1e-12)  # dB, защита от нулей
 
-    freq = np.fft.fftshift(np.fft.fftfreq(Nfft, d=1/fs))
-    c = 3e8
-    velocity_kmh = float(channel_model[2:])
-    f_D = (velocity_kmh / 3.6) * (frequency / c)
+#     freq = np.fft.fftshift(np.fft.fftfreq(Nfft, d=1/fs))
+#     c = 3e8
+#     velocity_kmh = float(channel_model[2:])
+#     f_D = (velocity_kmh / 3.6) * (frequency / c)
 
-    # ===== 3D график =====
-    fig = plt.figure(figsize=(10,7))
-    ax = fig.add_subplot(111, projection='3d')
-
-
-    for l in range(L):
-        ax.plot(
-            freq,
-            np.ones_like(freq) * delay[l],
-            S_power_dB[:, l],
-            linewidth=1.0
-        )
-
-    ax.set_xlabel("f / Hz")
-    ax.set_ylabel("τ / µs")
-    ax.set_zlabel("S(τ,f) [dB]")
-    ax.set_title("Scattering function of channel")
+#     # ===== 3D график =====
+#     fig = plt.figure(figsize=(10,7))
+#     ax = fig.add_subplot(111, projection='3d')
 
 
-    Nt, L = H.shape
-    time = np.arange(Nt) / 1e6        # секунды
-    delay = tau * 1e6                 # в микросекунды
+#     for l in range(L):
+#         ax.plot(
+#             freq,
+#             np.ones_like(freq) * delay[l],
+#             S_power_dB[:, l],
+#             linewidth=1.0
+#         )
 
-    P = np.abs(H)**2
-    P_dB = 10 * np.log10(P + 1e-12)
-    print("Средняя мощность лучей:")
-    print(np.mean(P, axis=0))
-
-    T, D = np.meshgrid(time, delay, indexing='ij')
-
-    fig = plt.figure(figsize=(10,7))
-    ax = fig.add_subplot(111, projection='3d')
-
-    surf = ax.plot_surface(
-        T,
-        D,
-        P_dB,
-        cmap='viridis'
-    )
-
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Delay (µs)")
-    ax.set_zlabel("Power (dB)")
-    ax.set_title(f"3D Power Delay Profile {channel_model}")
-
-    fig.colorbar(surf, ax=ax, label="Power (dB)")
-    # elev — угол над горизонтом (высота), azim — поворот вокруг оси Z
-    ax.view_init(elev=30, azim=-60) 
-
-    # ACF
-    from scipy.special import j0
-    # Берём один луч
-    h = H[:, 0]
-    h = h - np.mean(h)
-
-    acf = compute_acf_stable(h)
-
-    lags = np.arange(len(acf)) / frequency_s
+#     ax.set_xlabel("f / Hz")
+#     ax.set_ylabel("τ / µs")
+#     ax.set_zlabel("S(τ,f) [dB]")
+#     ax.set_title("Scattering function of channel")
 
 
-    # ----- Теоретический J0 -----
-    c = 3e8
-    f_D = (int(channel_model[2:])/3.6) * frequency / c
+#     Nt, L = H.shape
+#     time = np.arange(Nt) / 1e6        # секунды
+#     delay = tau * 1e6                 # в микросекунды
 
-    acf_theory = j0(2*np.pi*f_D*lags)
+#     P = np.abs(H)**2
+#     P_dB = 10 * np.log10(P + 1e-12)
+#     print("Средняя мощность лучей:")
+#     print(np.mean(P, axis=0))
 
-    mse = np.mean((np.real(acf[:2000]) - acf_theory[:2000])**2)
-    print("MSE vs J0:", mse)
-    # print(np.var(h))
+#     T, D = np.meshgrid(time, delay, indexing='ij')
 
-    # ----- График -----
-    plt.figure(figsize=(8,5))
-    plt.plot(lags, np.real(acf), label="Empirical ACF")
-    plt.plot(lags, acf_theory, '--', label="J0 theory")
-    plt.xlim(0, 40)
-    plt.xlabel("Lag (s)")
-    plt.ylabel("Normalized ACF")
-    plt.legend()
-    plt.grid()
-    plt.show()
+#     fig = plt.figure(figsize=(10,7))
+#     ax = fig.add_subplot(111, projection='3d')
+
+#     surf = ax.plot_surface(
+#         T,
+#         D,
+#         P_dB,
+#         cmap='viridis'
+#     )
+
+#     ax.set_xlabel("Time (s)")
+#     ax.set_ylabel("Delay (µs)")
+#     ax.set_zlabel("Power (dB)")
+#     ax.set_title(f"3D Power Delay Profile {channel_model}")
+
+#     fig.colorbar(surf, ax=ax, label="Power (dB)")
+#     # elev — угол над горизонтом (высота), azim — поворот вокруг оси Z
+#     ax.view_init(elev=30, azim=-60) 
+
+#     # ACF
+#     from scipy.special import j0
+#     # Берём один луч
+#     h = H[:, 0]
+#     h = h - np.mean(h)
+
+#     acf = compute_acf_stable(h)
+
+#     lags = np.arange(len(acf)) / frequency_s
+
+
+#     # ----- Теоретический J0 -----
+#     c = 3e8
+#     f_D = (int(channel_model[2:])/3.6) * frequency / c
+
+#     acf_theory = j0(2*np.pi*f_D*lags)
+
+#     mse = np.mean((np.real(acf[:2000]) - acf_theory[:2000])**2)
+#     print("MSE vs J0:", mse)
+#     # print(np.var(h))
+
+#     # ----- График -----
+#     plt.figure(figsize=(8,5))
+#     plt.plot(lags, np.real(acf), label="Empirical ACF")
+#     plt.plot(lags, acf_theory, '--', label="J0 theory")
+#     plt.xlim(0, 40)
+#     plt.xlabel("Lag (s)")
+#     plt.ylabel("Normalized ACF")
+#     plt.legend()
+#     plt.grid()
+#     plt.show()

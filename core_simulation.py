@@ -34,7 +34,7 @@ def save_mse_comparison(ratios, mse_ls, mse_lmmse, config):
 def simulate(config):
     start_time = time.perf_counter()
     (
-        seed, num_interferers, channel_mat_file, channel_memory, 
+        seed, snr, ci, num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, modulation_type, calculation_mode, 
         channel_estimation_method, num_bursts, channel_model, channel_taps,
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
@@ -42,8 +42,6 @@ def simulate(config):
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
         apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
     ) = extract_parameters.extract_config_parameters(config)
-    
-    rng = np.random.default_rng(seed)
 
     (
         tail_bits, num_data_bits_per_burst, training_sequence_len, 
@@ -117,7 +115,7 @@ def simulate(config):
         print(f"SAIC regularization:        {saic_regularization}")
         print(f"SAIC thermal noise var.:    {saic_thermal_noise_variance}")
     print(f"Temporal whitening enabled: {apply_temporal_whitening}")
-    if apply_temporal_whitening:
+    if apply_temporal_whitening: 
         print(f"Temporal method:            {temporal_method}")
         print(f"Temporal regularization:    {temporal_regularization}")
         print(f"Temporal thermal noise var.:{temporal_thermal_noise_variance}")
@@ -137,7 +135,7 @@ def simulate(config):
     with Pool(processes=num_workers) as pool:
         for i, target_ratio_db in enumerate(target_ratio_range_db):
             base_args = (
-                rng, target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
+                seed, snr, ci, target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
                 training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
                 channel_estimation_method, training_sequence_len, traceback_depth,
                 num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,

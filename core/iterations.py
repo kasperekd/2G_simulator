@@ -30,7 +30,7 @@ def estimate_antenna_correlation(h1, h2):
 
 def single_burst_iteration(args):
     (
-        rng, target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
+        seed, snr, ci, target_ratio_db, num_interferers, h11, h12, h21, h22, L, modem,
         training_sequence, bs_nf_db, temp_k, fs_hz, calculation_mode,
         channel_estimation_method, training_sequence_len, traceback_depth,
         num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
@@ -38,15 +38,15 @@ def single_burst_iteration(args):
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
         apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
     ) = args
-    
-    # TODO: uncomment second string for repeatability # Уже не нужна
-    # rng = np.random.default_rng(111) # Интеграция обжего рандома
+
+    # np.random.seed(seed)
+
     # 1. TRANSMITTER SIDE
-    data_bits = generate_data_bits(num_data_bits_per_burst, rng)
+    data_bits = generate_data_bits(num_data_bits_per_burst, seed)
     tx_burst, original_data_symbols, tail_symbols = create_burst(data_bits, modem, training_sequence, tail_bits, guard_period)
 
      # 2. CHANNEL PROPAGATION
-    channel_idx = rng.integers(0, h11.shape[1])
+    channel_idx = np.random.randint(0, h11.shape[1])
     h_true_ant1 = h11[:L, channel_idx]
     h_true_ant2 = h12[:L, channel_idx]
     s1_rx_ant1 = convolve(tx_burst, h_true_ant1, 'full')
@@ -55,7 +55,7 @@ def single_burst_iteration(args):
     # 3. INTERFERENCE GENERATION
     total_interf_rx_ant1, total_interf_rx_ant2 = interference_generation(
         s1_rx_ant1, num_interferers, h21, h22,
-        L, channel_idx, modem, len(tx_burst), rng
+        L, channel_idx, modem, len(tx_burst), seed
     )
 
     if getattr(config, "DEBUG_INTERFERENCE", True):
@@ -79,12 +79,12 @@ def single_burst_iteration(args):
     # 4. SCALING AND COMBINING
     rx_ant1, rx_ant2 = scaling_combining_and_noise(
         s1_rx_ant1, s1_rx_ant2, total_interf_rx_ant1, total_interf_rx_ant2, 
-        target_ratio_db,calculation_mode, constant_snr_db=20.0, constant_ci_db=20.0
+        target_ratio_db,calculation_mode, constant_snr_db=snr, constant_ci_db=ci
     )
 
     # 5. RECEIVER: Add noise
-    rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k, rng)
-    rx_ant2_noisy = add_thermal_noise(rx_ant2, bs_nf_db, fs_hz, temp_k, rng)
+    rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k, seed)
+    rx_ant2_noisy = add_thermal_noise(rx_ant2, bs_nf_db, fs_hz, temp_k, seed)
 
     # rho_antennas = estimate_antenna_correlation(h_true_ant1, h_true_ant2)
     # print(f"[Debug] Antenna correlation: {rho_antennas:.3f}")
