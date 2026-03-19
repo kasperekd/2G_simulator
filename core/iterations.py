@@ -6,7 +6,7 @@ from transceiver.generate_data import generate_data_bits
 from transceiver.interference import interference_generation
 
 from receiver.noise import add_thermal_noise
-from receiver.scaling_and_combing import scaling_combining_and_noise
+from receiver.scaling_and_combing import scaling_combining_and_noise, scaling_combining_and_noise_dbm
 from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse
 from receiver.viterbi import mlse_viterbi_decode
 from receiver.DeMUX import extract_data_segments
@@ -36,7 +36,8 @@ def single_burst_iteration(args):
         num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
         combining_mode, irc_regularization,
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
-        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
+        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst,
+        bs_tx_power_dbm, bs_antenna_gain_dbi, ms_antenna_gain_dbi, path_loss_db, channel_bandwidth_hz
     ) = args
     
     # TODO: uncomment second string for repeatability
@@ -77,10 +78,29 @@ def single_burst_iteration(args):
                 print(f"Failed to export mat file: {e}")
 
     # 4. SCALING AND COMBINING
-    rx_ant1, rx_ant2 = scaling_combining_and_noise(
-        s1_rx_ant1, s1_rx_ant2, total_interf_rx_ant1, total_interf_rx_ant2, 
-        target_ratio_db,calculation_mode, constant_snr_db=20.0, constant_ci_db=20.0
-    )
+    # Check if dBm mode is enabled (use physical power calculations)
+    use_dbm_mode = getattr(config, "use_dbm_mode", False)
+    
+    if use_dbm_mode:
+        # Use dBm-based power calculations
+        rx_ant1, rx_ant2, power_info = scaling_combining_and_noise_dbm(
+            s1_rx_ant1, s1_rx_ant2,
+            total_interf_rx_ant1, total_interf_rx_ant2,
+            target_ratio_db,
+            calculation_mode,
+            tx_power_dbm=bs_tx_power_dbm,
+            antenna_gain_dbi=bs_antenna_gain_dbi,
+            path_loss_db=path_loss_db,
+            noise_figure_db=bs_nf_db,
+            bandwidth_hz=channel_bandwidth_hz,
+            temperature_k=temp_k
+        )
+    else:
+        # Use original relative dB-based calculations
+        rx_ant1, rx_ant2 = scaling_combining_and_noise(
+            s1_rx_ant1, s1_rx_ant2, total_interf_rx_ant1, total_interf_rx_ant2,
+            target_ratio_db, calculation_mode, constant_snr_db=20.0, constant_ci_db=20.0
+        )
 
     # 5. RECEIVER: Add noise
     rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k)

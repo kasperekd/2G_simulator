@@ -9,6 +9,10 @@ from channel.extract_channel import extract_cir
 from visualisation.result import plot_results, save_results_to_csv
 from core.ber import calculate_ber
 from core.burst_info import get_burst_parameters
+from receiver.power_calc import (
+    calculate_received_power_dbm,
+    calculate_thermal_noise_power_dbm
+)
 from multiprocessing import Pool, cpu_count
 
 import numpy as np
@@ -34,13 +38,14 @@ def save_mse_comparison(ratios, mse_ls, mse_lmmse, config):
 def simulate(config):
     start_time = time.perf_counter()
     (
-        num_interferers, channel_mat_file, channel_memory, 
-        target_ratio_range_db, modulation_type, calculation_mode, 
-        channel_estimation_method, num_bursts, channel_model, 
+        num_interferers, channel_mat_file, channel_memory,
+        target_ratio_range_db, modulation_type, calculation_mode,
+        channel_estimation_method, num_bursts, channel_model,
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
         combining_mode, irc_regularization,
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
-        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
+        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst,
+        bs_tx_power_dbm, bs_antenna_gain_dbi, ms_antenna_gain_dbi, path_loss_db, channel_bandwidth_hz
     ) = extract_parameters.extract_config_parameters(config)
     
     (
@@ -90,7 +95,6 @@ def simulate(config):
     ber_values = np.zeros(len(target_ratio_range_db))
     mse_ls_values = np.zeros(len(target_ratio_range_db))
     mse_lmmse_values = np.zeros(len(target_ratio_range_db))
-
     print("=" * 80)
     print(f"STARTING SIMULATION with {cpu_count()} processes")
     print("SIMULATION CONFIGURATION")
@@ -125,6 +129,31 @@ def simulate(config):
     print(f"Sampling Frequency:         {fs_hz:.2f} Hz")
     print(f"Target Ratio Range:         {target_ratio_range_db[0]:.1f} to {target_ratio_range_db[-1]:.1f} dB (step: {target_ratio_range_db[1] - target_ratio_range_db[0]:.1f} dB)")
     print("=" * 80)
+    print("POWER PARAMETERS (dBm)")
+    print("=" * 80)
+    print(f"BS TX Power:                {bs_tx_power_dbm:.1f} dBm")
+    print(f"BS Antenna Gain:            {bs_antenna_gain_dbi:.1f} dBi")
+    print(f"MS Antenna Gain:            {ms_antenna_gain_dbi:.1f} dBi")
+    print(f"Path Loss:                  {path_loss_db:.1f} dB")
+    print(f"Channel Bandwidth:          {channel_bandwidth_hz/1000:.0f} kHz")
+    
+    # Calculate and display received power
+    rx_power_dbm = calculate_received_power_dbm(
+        bs_tx_power_dbm,
+        bs_antenna_gain_dbi,
+        ms_antenna_gain_dbi,
+        path_loss_db
+    )
+    rx_noise_dbm = calculate_thermal_noise_power_dbm(
+        channel_bandwidth_hz,
+        temp_k,
+        bs_nf_db
+    )
+    print(f"Received Signal Power:      {rx_power_dbm:.1f} dBm")
+    print(f"Received Noise Power:       {rx_noise_dbm:.1f} dBm")
+    result_snr_db = rx_power_dbm - rx_noise_dbm
+    print(f"Resulting SNR (thermal):    {result_snr_db:.1f} dB")
+    print("=" * 80)
     print("STARTING SIMULATION")
     print("=" * 80)
 
@@ -138,10 +167,9 @@ def simulate(config):
                 channel_estimation_method, training_sequence_len, traceback_depth,
                 num_data_bits_per_burst, tail_bits, guard_period, config, channel_model,
                 combining_mode, irc_regularization,
-                apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance
-            )
-            base_args = base_args + (
-                apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
+                apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
+                apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst,
+                bs_tx_power_dbm, bs_antenna_gain_dbi, ms_antenna_gain_dbi, path_loss_db, channel_bandwidth_hz
             )
             
             ber, avg_mse_ls, avg_mse_lmmse = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
@@ -252,7 +280,6 @@ def main():
                     csv_filepath = save_results_to_csv(ratio_values, ber_values, cfg_local, cfg_local.results_output.output_directory)
                     results_paths.append(csv_filepath)
                     print(f"CSV file saved: {csv_filepath}")
-
                 if should_plot:
                     results_for_plot.append((ratio_values, ber_values, cfg_local))
 
@@ -296,7 +323,6 @@ def main():
 
         return
     # --------------------------------------------------------------------
-
     ratio_values, ber_values = simulate(config)
 
     print('\nFinal BER Results:')

@@ -1,60 +1,67 @@
 {
   "num_interferers": 1,
   "use_pim": false,
-  "use_dbm_mode": false,
+  
   "core_simulation_parameters": {
-    "modulation_type": "BPSK",
+    "modulation_type": "GMSK",
     "channel_model": "TU50",
-    "channel_memory": 3,
-    "target_ratio_range_db":{
+    "channel_memory": 6,
+    "target_ratio_range_db": {
       "start": -5,
-      "stop": 21,
-      "step": 2
+      "stop": 25,
+      "step": 1.0
     },
-    "traceback_depth": 15
+    "traceback_depth": 5
   },
+  
   "mode_selection": {
-    "calculation_mode": "CI",
+    "calculation_mode": "SINR",
     "channel_estimation_method": "lmmse",
-    "combining_mode": "ST-IRC",
-    "st_irc_method": "direct",
-    "irc_regularization": 1e-6
+    "combining_mode": "IRC",
+    "irc_regularization": 0.1
   },
+  
   "physical_layer_parameters": {
-    "bs_nf_db": 3.0,
-    "fs_hz": 1083333.33,
-    "temp_k": 300
+    "bs_nf_db": 0,
+    "fs_hz": 200e6,
+    "temp_k": 290
   },
+  
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
-    "num_bursts": 1000
+    "num_bursts": 300
   },
+  
   "file_paths": {
-    "channel_mat_file": "./channel/Ht2_0204_11.mat"
+    "channel_mat_file": "./channel/quadriga.mat"
   },
+  
   "results_output": {
     "save_results": true,
     "save_mse_debug": false,
-    "output_directory": "./results/noise2"
+    "output_directory": "./results"
   },
+  
   "saic": {
     "apply_saic_preprocessing": false,
     "method": "basic",
     "regularization": 1e-6,
     "thermal_noise_variance": 1e-6
   },
+  
   "temporal_whitening": {
     "apply_temporal_whitening": false,
-    "method": "mahalanobis",
+    "method": "bias_removal",
     "regularization": 1e-6,
     "thermal_noise_variance": null,
     "full_burst": true
   },
+  
   "channel_sweep": {
     "enabled": false,
-    "models": ["AWGN", "TU50", "EQ50", "HT100", "RA130"],
-    "model_to_file": {}
+    "models": ["AWGN", "TU50", "EQ50", "HT100", "RA130"]
   },
+  
   "power_parameters": {
     "bs_tx_power_dbm": 43.0,
     "bs_antenna_gain_dbi": 18.0,

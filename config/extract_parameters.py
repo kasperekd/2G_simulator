@@ -31,9 +31,9 @@ def extract_config_parameters(config: SystemConfig):
     burst_symbol_rate = burst_structure_parameters.burst_symbol_rate
     num_bursts = burst_structure_parameters.num_bursts
     
-
     # file paths
     channel_mat_file = config.file_paths.channel_mat_file
+
     # saic parameters
     saic_cfg = config.saic
     apply_saic_preprocessing = saic_cfg.apply_saic_preprocessing
@@ -49,6 +49,14 @@ def extract_config_parameters(config: SystemConfig):
     temporal_thermal_noise_variance = temp_cfg.thermal_noise_variance
     temporal_full_burst = temp_cfg.full_burst
 
+    # power parameters in dBm
+    power_cfg = config.power_parameters
+    bs_tx_power_dbm = power_cfg.bs_tx_power_dbm
+    bs_antenna_gain_dbi = power_cfg.bs_antenna_gain_dbi
+    ms_antenna_gain_dbi = power_cfg.ms_antenna_gain_dbi
+    path_loss_db = power_cfg.path_loss_db
+    channel_bandwidth_hz = power_cfg.channel_bandwidth_hz
+
     return (
         num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, mod_type, calculation_mode, 
@@ -56,5 +64,6 @@ def extract_config_parameters(config: SystemConfig):
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
         combining_mode, irc_regularization,
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,
-        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst
+        apply_temporal_whitening, temporal_method, temporal_regularization, temporal_thermal_noise_variance, temporal_full_burst,
+        bs_tx_power_dbm, bs_antenna_gain_dbi, ms_antenna_gain_dbi, path_loss_db, channel_bandwidth_hz
     )

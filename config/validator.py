@@ -75,6 +75,33 @@ class ResultsOutputConfig(BaseModel):
         description="Directory where CSV results will be saved."
     )
 
+class PowerParametersConfig(BaseModel):
+    """Power parameters in dBm and physical link budget calculation."""
+    bs_tx_power_dbm: float = Field(
+        default=43.0,
+        ge=0,
+        le=60,
+        description="BS transmit power in dBm (typical: 43 dBm for GSM)."
+    )
+    bs_antenna_gain_dbi: float = Field(
+        default=18.0,
+        description="BS antenna gain in dBi."
+    )
+    ms_antenna_gain_dbi: float = Field(
+        default=2.0,
+        description="MS antenna gain in dBi."
+    )
+    path_loss_db: float = Field(
+        default=120.0,
+        ge=0,
+        description="Path loss in dB."
+    )
+    channel_bandwidth_hz: float = Field(
+        default=200e3,
+        gt=0,
+        description="Channel bandwidth in Hz (GSM = 200 kHz)."
+    )
+
 class SAICConfig(BaseModel):
     apply_saic_preprocessing: bool = Field(
         default=False,
@@ -94,7 +121,6 @@ class SAICConfig(BaseModel):
         ge=0,
         description="Estimated thermal noise variance used in bias removal."
     )
-
 
 class TemporalWhiteningConfig(BaseModel):
     apply_temporal_whitening: bool = Field(
@@ -137,6 +163,10 @@ class ChannelSweepConfig(BaseModel):
 class SystemConfig(BaseModel):
     num_interferers: int
     use_pim: bool
+    use_dbm_mode: bool = Field(
+        default=False,
+        description="Use absolute dBm-based power calculations instead of relative dB."
+    )
     core_simulation_parameters: CoreParametrsConfig
     mode_selection: ModeSelectionConfig
     physical_layer_parameters: PhyLayerParametersConfig
@@ -146,6 +176,7 @@ class SystemConfig(BaseModel):
     saic: SAICConfig = Field(default_factory=SAICConfig)
     temporal_whitening: TemporalWhiteningConfig = Field(default_factory=TemporalWhiteningConfig)
     channel_sweep: ChannelSweepConfig = Field(default_factory=ChannelSweepConfig)
+    power_parameters: PowerParametersConfig = Field(default_factory=PowerParametersConfig)
 
 def validate_config(config_data: Dict[str, Any]) -> SystemConfig:
     """Validates a configuration dictionary against the schema.
