@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any
 from receiver.power_calc import (
-    ratio_to_interference_power_dbm,
+    ratio_to_effective_signal_power_dbm,
     calculate_received_power_dbm,
     calculate_thermal_noise_power_dbm
 )
@@ -111,19 +111,19 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config
                 phy_params.bs_nf_db
             )
 
-            # Convert each ratio to interference power and create pairs
+            # Convert each ratio to effective signal power and create pairs
             data_pairs = []
             for ratio, ber in zip(ratio_values, ber_values):
-                interf_dbm = ratio_to_interference_power_dbm(
+                effective_dbm = ratio_to_effective_signal_power_dbm(
                     ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode
                 )
-                data_pairs.append((interf_dbm, ber))
+                data_pairs.append((effective_dbm, ber))
 
-            # Sort by DECREASING interference power (high on right, low on left)
-            data_pairs.sort(key=lambda x: -x[0])
-            writer.writerow(['Interference Power (dBm)', 'BER'])
-            for interf_dbm, ber in data_pairs:
-                writer.writerow([f'{interf_dbm:.2f}', f'{ber:.6e}'])
+            # Sort by INCREASING effective signal power (low on left, high on right)
+            data_pairs.sort(key=lambda x: x[0])
+            writer.writerow(['Effective Signal Power (dBm)', 'BER'])
+            for effective_dbm, ber in data_pairs:
+                writer.writerow([f'{effective_dbm:.2f}', f'{ber:.6e}'])
         else:
             writer.writerow(['# RESULTS DATA'])
             writer.writerow([f'{mode_params.calculation_mode} (dB)', 'BER'])
@@ -166,7 +166,7 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[s
                 continue
             
             if reading_data:
-                if row[0] in ['CI', 'SINR'] or row[0].endswith('(dB)') or row[0].endswith('(dBm)'):
+                if row[0] in ['CI', 'SINR', 'Effective Signal'] or row[0].endswith('(dB)') or row[0].endswith('(dBm)'):
                     # This is the header, skip it
                     continue
                 try:
@@ -231,12 +231,7 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
 
         # Set xlabel based on mode
         if use_dbm_mode:
-            if calc_mode == 'CI':
-                xlabel = 'Interference Power (dBm)'
-            elif calc_mode == 'SINR':
-                xlabel = 'Total Interference+Noise Power (dBm)'
-            else:  # SNR
-                xlabel = 'Noise Power (dBm)'
+                xlabel = 'Effective Signal Power (dBm)'
         else:
             xlabel = f'{calc_mode} (dB)'
 
@@ -256,10 +251,10 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 # Avoid log(0)
                 ber_plot = np.where(ber == 0, 1e-6, ber)
                 
-                # Sort dBm data by DECREASING power for intuitive reading
+                # Sort dBm data by INCREASING effective signal power for intuitive reading
                 is_dbm_mode = metadata.get('Use dBm Mode', 'False').lower() in ['true', '1', 'yes']
                 if is_dbm_mode:
-                    sort_idx = np.argsort(-x_data)
+                    sort_idx = np.argsort(x_data)
                     x_data = x_data[sort_idx]
                     ber_plot = ber_plot[sort_idx]
 
@@ -290,7 +285,7 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
         use_dbm_mode = getattr(config, 'use_dbm_mode', False)
 
         if use_dbm_mode:
-            # Convert ratio values to interference power in dBm for plotting
+            # Convert ratio values to effective signal power in dBm for plotting
             power_params = config.power_parameters
             phy_params = config.physical_layer_parameters
             mode_params = config.mode_selection
@@ -307,22 +302,16 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 phy_params.bs_nf_db
             )
 
-            # Convert each ratio to interference power
+            # Convert each ratio to effective signal power
             x_values = np.array([
-                ratio_to_interference_power_dbm(ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode)
+                ratio_to_effective_signal_power_dbm(ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode)
                 for ratio in ratio_values
             ])
 
-            if mode_params.calculation_mode == 'CI':
-                xlabel = 'Interference Power (dBm)'
-            elif mode_params.calculation_mode == 'SINR':
-                xlabel = 'Total Interference+Noise Power (dBm)'
-            else:  # SNR
-                xlabel = 'Noise Power (dBm)'
+            xlabel = 'Effective Signal Power (dBm)'
 
-            # Sort by DECREASING interference power for intuitive reading
-            # (low interference on left → high interference on right)
-            sort_idx = np.argsort(-x_values)  # Note: negative for descending
+            # Sort by INCREASING effective signal power (low on left, high on right)
+            sort_idx = np.argsort(x_values)
             x_values = x_values[sort_idx]
             ber_values_sorted = ber_values[sort_idx]
             ber_plot = np.where(ber_values_sorted == 0, 1e-6, ber_values_sorted)

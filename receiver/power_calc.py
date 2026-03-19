@@ -244,3 +244,62 @@ def ratio_to_interference_power_dbm(
     else:
         raise ValueError(f"Unknown calculation_mode: {calculation_mode}")
 
+
+def ratio_to_effective_signal_power_dbm(
+    ratio_db: float,
+    signal_power_dbm: float,
+    noise_power_dbm: float,
+    calculation_mode: str
+) -> float:
+    """
+    Конвертировать отношение (CI/SINR/SNR) в эффективную мощность чистого сигнала в dBm.
+
+    Показывает какой "чистой" мощностью обладает сигнал с учётом загрязнения.
+    При плохом CI/SINR/SNR возвращается низкое значение.
+    При хорошем CI/SINR/SNR возвращается значение, близкое к чистому сигналу.
+
+    Args:
+        ratio_db: Отношение (CI/SINR/SNR) в dB
+        signal_power_dbm: Мощность сигнала в dBm
+        noise_power_dbm: Мощность теплового шума в dBm
+        calculation_mode: 'CI', 'SINR', или 'SNR'
+
+    Returns:
+        Эффективная мощность чистого сигнала в dBm
+
+    Examples:
+        Ps = -57 dBm, CI = -5 dB  → P_eff ≈ -112 dBm (сильно загрязнён)
+        Ps = -57 dBm, CI = 15 dB  → P_eff ≈ -57 dBm (почти чистый)
+    """
+    signal_watts = dbm_to_watts(signal_power_dbm)
+
+    if calculation_mode == 'CI':
+        # CI = Ps - Pi → Pi = Ps - CI
+        interference_power_dbm = signal_power_dbm - ratio_db
+        interference_watts = dbm_to_watts(interference_power_dbm)
+        # Effective signal = Ps - Pi (мощность полезного сигнала)
+        effective_watts = max(signal_watts - interference_watts, 1e-20)
+
+    elif calculation_mode == 'SINR':
+        # SINR = Ps / (Pi + Pn)
+        # Отношение мощности полезного сигнала к сумме помех
+        sinr_linear = db_to_linear(ratio_db)
+        noise_watts = dbm_to_watts(noise_power_dbm)
+        # Ps / (Pi + Pn) = 10^(SINR/10)
+        # Pi + Pn = Ps / 10^(SINR/10)
+        total_interf_noise_watts = signal_watts / sinr_linear
+        # Эффективный сигнал = Ps - (Pi + Pn)
+        effective_watts = max(signal_watts - total_interf_noise_watts, 1e-20)
+
+    elif calculation_mode == 'SNR':
+        # SNR = Ps - Pn
+        noise_power_dbm = signal_power_dbm - ratio_db
+        noise_watts = dbm_to_watts(noise_power_dbm)
+        # Эффективный сигнал = Ps - Pn
+        effective_watts = max(signal_watts - noise_watts, 1e-20)
+
+    else:
+        raise ValueError(f"Unknown calculation_mode: {calculation_mode}")
+
+    return watts_to_dbm(effective_watts)
+
