@@ -189,3 +189,58 @@ def calculate_sinr_from_powers_dbm(
     sinr_db = 10 * np.log10(signal_watts / total_interference_noise)
     
     return sinr_db
+
+
+def ratio_to_interference_power_dbm(
+    ratio_db: float,
+    signal_power_dbm: float,
+    noise_power_dbm: float,
+    calculation_mode: str
+) -> float:
+    """
+    Конвертировать отношение (CI/SINR/SNR) в абсолютную мощность интерфера/шума в dBm.
+
+    При CI режиме: CI = Ps - Pi → Pi = Ps - CI
+    При SINR режиме: SINR = Ps / (Pi + Pn) → решаем относительно Pi
+    При SNR режиме: SNR = Ps - Pn → Pn = Ps - SNR (возвращаем мощность шума)
+
+    Args:
+        ratio_db: Отношение в dB
+        signal_power_dbm: Мощность сигнала в dBm
+        noise_power_dbm: Мощность теплового шума в dBm
+        calculation_mode: 'CI', 'SINR', или 'SNR'
+
+    Returns:
+        Мощность в dBm (интерфера для CI/SINR, шума для SNR)
+    """
+    if calculation_mode == 'CI':
+        # CI = Ps - Pi → Pi = Ps - CI
+        interference_power_dbm = signal_power_dbm - ratio_db
+        return interference_power_dbm
+
+    elif calculation_mode == 'SINR':
+        # SINR = Ps / (Pi + Pn)
+        # 10^(SINR/10) = Ps / (Pi + Pn)
+        # Pi + Pn = Ps / 10^(SINR/10)
+        # Pi = Ps / 10^(SINR/10) - Pn
+
+        sinr_linear = db_to_linear(ratio_db)
+        signal_watts = dbm_to_watts(signal_power_dbm)
+        noise_watts = dbm_to_watts(noise_power_dbm)
+
+        total_interf_noise_watts = signal_watts / sinr_linear
+        interference_watts = total_interf_noise_watts - noise_watts
+
+        if interference_watts < 1e-20:
+            interference_watts = 1e-20
+
+        return watts_to_dbm(interference_watts)
+
+    elif calculation_mode == 'SNR':
+        # SNR = Ps - Pn → Pn = Ps - SNR
+        noise_power_dbm = signal_power_dbm - ratio_db
+        return noise_power_dbm
+
+    else:
+        raise ValueError(f"Unknown calculation_mode: {calculation_mode}")
+

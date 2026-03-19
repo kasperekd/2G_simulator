@@ -5,6 +5,11 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any
+from receiver.power_calc import (
+    ratio_to_interference_power_dbm,
+    calculate_received_power_dbm,
+    calculate_thermal_noise_power_dbm
+)
 
 def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config: Any, output_path: str) -> str:
     """
@@ -59,8 +64,29 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config
         writer.writerow(['Sampling Frequency (Hz)', phy_params.fs_hz])
         writer.writerow(['Traceback Depth', core_params.traceback_depth])
         # Power parameters (dBm mode)
+        use_dbm_mode = getattr(config, 'use_dbm_mode', False)
         power_params = config.power_parameters
-        writer.writerow(['Use dBm Mode', getattr(config, 'use_dbm_mode', False)])
+        writer.writerow(['Use dBm Mode', use_dbm_mode])
+
+        if use_dbm_mode:
+            # Calculate signal and noise power for dBm mode
+            try:
+                rx_signal_dbm = calculate_received_power_dbm(
+                    power_params.bs_tx_power_dbm,
+                    power_params.bs_antenna_gain_dbi,
+                    power_params.ms_antenna_gain_dbi,
+                    power_params.path_loss_db
+                )
+                rx_noise_dbm = calculate_thermal_noise_power_dbm(
+                    power_params.channel_bandwidth_hz,
+                    phy_params.temp_k,
+                    phy_params.bs_nf_db
+                )
+                writer.writerow(['Received Signal Power (dBm)', f'{rx_signal_dbm:.2f}'])
+                writer.writerow(['Received Noise Power (dBm)', f'{rx_noise_dbm:.2f}'])
+            except Exception as e:
+                print(f"Warning: Could not calculate power for CSV: {e}")
+
         writer.writerow(['BS TX Power (dBm)', power_params.bs_tx_power_dbm])
         writer.writerow(['BS Antenna Gain (dBi)', power_params.bs_antenna_gain_dbi])
         writer.writerow(['MS Antenna Gain (dBi)', power_params.ms_antenna_gain_dbi])
@@ -69,13 +95,37 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config
         writer.writerow([])  # Empty line for readability
         
         # Data section header
-        writer.writerow(['# RESULTS DATA'])
-        writer.writerow([f'{mode_params.calculation_mode} (dB)', 'BER'])
-        
-        # Write data
-        for ratio, ber in zip(ratio_values, ber_values):
-            writer.writerow([f'{ratio:.2f}', f'{ber:.6e}'])
-    
+        if use_dbm_mode:
+            # In dBm mode, show interference power instead of ratio
+            writer.writerow(['# RESULTS DATA'])
+            # Convert ratio values to interference power in dBm
+            rx_signal_dbm = calculate_received_power_dbm(
+                power_params.bs_tx_power_dbm,
+                power_params.bs_antenna_gain_dbi,
+                power_params.ms_antenna_gain_dbi,
+                power_params.path_loss_db
+            )
+            rx_noise_dbm = calculate_thermal_noise_power_dbm(
+                power_params.channel_bandwidth_hz,
+                phy_params.temp_k,
+                phy_params.bs_nf_db
+            )
+
+            # Convert each ratio to interference power
+            writer.writerow(['Interference Power (dBm)', 'BER'])
+            for ratio, ber in zip(ratio_values, ber_values):
+                interf_dbm = ratio_to_interference_power_dbm(
+                    ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode
+                )
+                writer.writerow([f'{interf_dbm:.2f}', f'{ber:.6e}'])
+        else:
+            writer.writerow(['# RESULTS DATA'])
+            writer.writerow([f'{mode_params.calculation_mode} (dB)', 'BER'])
+
+            # Write data
+            for ratio, ber in zip(ratio_values, ber_values):
+                writer.writerow([f'{ratio:.2f}', f'{ber:.6e}'])
+
     print(f"Results saved to: {filepath}")
     return str(filepath)
 
@@ -88,10 +138,11 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[s
         filepath: Path to the CSV file
         
     Returns:
-        Tuple of (ratio_values, ber_values, metadata_dict)
+        Tuple of (x_values, ber_values, metadata_dict)
+        x_values can be ratio values (dB) or interference power (dBm) depending on mode
     """
     metadata = {}
-    ratio_values = []
+    x_values = []
     ber_values = []
     reading_data = False
     
@@ -109,13 +160,13 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[s
                 continue
             
             if reading_data:
-                if row[0] in ['CI', 'SINR'] or row[0].endswith('(dB)'):
+                if row[0] in ['CI', 'SINR'] or row[0].endswith('(dB)') or row[0].endswith('(dBm)'):
                     # This is the header, skip it
                     continue
                 try:
-                    ratio = float(row[0])
+                    x = float(row[0])
                     ber = float(row[1])
-                    ratio_values.append(ratio)
+                    x_values.append(x)
                     ber_values.append(ber)
                 except (ValueError, IndexError):
                     continue
@@ -126,7 +177,7 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[s
                     value = row[1]
                     metadata[key] = value
     
-    return np.array(ratio_values), np.array(ber_values), metadata
+    return np.array(x_values), np.array(ber_values), metadata
 
 
 def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None, config: Any = None,
@@ -157,10 +208,36 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
         from itertools import product
         combos = list(product(colors, markers, linestyles))
 
+        # Determine if all files use dBm mode
+        metadata_list = []
+        for filepath in comparison_files:
+            try:
+                _, _, metadata = load_results_from_csv(filepath)
+                metadata_list.append(metadata)
+            except Exception as e:
+                print(f"Error loading {filepath}: {e}")
+                continue
+
+        # Check if using dBm mode
+        use_dbm_mode_list = [m.get('Use dBm Mode', 'False') for m in metadata_list]
+        use_dbm_mode = any(v.lower() in ['true', '1', 'yes'] for v in use_dbm_mode_list)
+        calc_mode = metadata_list[0].get('Calculation Mode', 'CI') if metadata_list else 'CI'
+
+        # Set xlabel based on mode
+        if use_dbm_mode:
+            if calc_mode == 'CI':
+                xlabel = 'Interference Power (dBm)'
+            elif calc_mode == 'SINR':
+                xlabel = 'Total Interference+Noise Power (dBm)'
+            else:  # SNR
+                xlabel = 'Noise Power (dBm)'
+        else:
+            xlabel = f'{calc_mode} (dB)'
+
         for idx, filepath in enumerate(comparison_files):
             try:
-                ratio, ber, metadata = load_results_from_csv(filepath)
-                
+                x_data, ber, metadata = load_results_from_csv(filepath)
+
                 # Create label from metadata
                 modulation = metadata.get('Modulation Type', 'Unknown')
                 combining = metadata.get('Combining Mode', 'Unknown')
@@ -177,14 +254,13 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 color = colors[idx % len(colors)]
                 marker = markers[(idx // len(colors)) % len(markers)]
                 linestyle = linestyles[(idx // (len(colors) * len(markers))) % len(linestyles)]
-                plt.semilogy(ratio, ber_plot, marker=marker, linestyle=linestyle,
+                plt.semilogy(x_data, ber_plot, marker=marker, linestyle=linestyle,
                            linewidth=2, markersize=6, label=label, color=color, alpha=0.85)
                 
             except Exception as e:
                 print(f"Error loading {filepath}: {e}")
                 continue
-        
-        plt.xlabel('CI (dB)', fontsize=12)
+        plt.xlabel(xlabel, fontsize=12)
         plt.ylabel('BER', fontsize=12)
         plt.title('BER Comparison - Multiple Configurations', fontsize=14, fontweight='bold')
         plt.legend(loc='best', fontsize=10)
@@ -197,9 +273,52 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
             print("Error: For single plot, provide ratio_values, ber_values, and config")
             return
         
-        ber_plot = np.where(ber_values == 0, 1e-6, ber_values)
-        plt.semilogy(ratio_values, ber_plot, 'bo-', linewidth=2, markersize=6, alpha=0.8)
-        
+        # Check if dBm mode is enabled
+        use_dbm_mode = getattr(config, 'use_dbm_mode', False)
+
+        if use_dbm_mode:
+            # Convert ratio values to interference power in dBm for plotting
+            power_params = config.power_parameters
+            phy_params = config.physical_layer_parameters
+            mode_params = config.mode_selection
+
+            rx_signal_dbm = calculate_received_power_dbm(
+                power_params.bs_tx_power_dbm,
+                power_params.bs_antenna_gain_dbi,
+                power_params.ms_antenna_gain_dbi,
+                power_params.path_loss_db
+            )
+            rx_noise_dbm = calculate_thermal_noise_power_dbm(
+                power_params.channel_bandwidth_hz,
+                phy_params.temp_k,
+                phy_params.bs_nf_db
+            )
+
+            # Convert each ratio to interference power
+            x_values = np.array([
+                ratio_to_interference_power_dbm(ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode)
+                for ratio in ratio_values
+            ])
+
+            if mode_params.calculation_mode == 'CI':
+                xlabel = 'Interference Power (dBm)'
+            elif mode_params.calculation_mode == 'SINR':
+                xlabel = 'Total Interference+Noise Power (dBm)'
+            else:  # SNR
+                xlabel = 'Noise Power (dBm)'
+
+            # Sort by increasing interference power for better visualization
+            sort_idx = np.argsort(x_values)
+            x_values = x_values[sort_idx]
+            ber_plot = np.where(ber_values[sort_idx] == 0, 1e-6, ber_values[sort_idx])
+        else:
+            # Traditional mode: use ratio values (dB)
+            x_values = ratio_values
+            ber_plot = np.where(ber_values == 0, 1e-6, ber_values)
+            xlabel = f'{config.mode_selection.calculation_mode} (dB)'
+
+        plt.semilogy(x_values, ber_plot, 'bo-', linewidth=2, markersize=6, alpha=0.8)
+
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
         title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type} (channel: {config.core_simulation_parameters.channel_model})\n"
         title += (
@@ -208,9 +327,10 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
             f"Interferers: {config.num_interferers})"
         )
         plt.title(title, fontsize=12, fontweight='bold')
-        plt.xlabel(f'{config.mode_selection.calculation_mode} (dB)', fontsize=12)
+        plt.xlabel(xlabel, fontsize=12)
         plt.ylabel('BER', fontsize=12)
         plt.ylim([1e-5, 1])
     
     plt.tight_layout()
     plt.show()
+
