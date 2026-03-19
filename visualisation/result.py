@@ -111,12 +111,18 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config
                 phy_params.bs_nf_db
             )
 
-            # Convert each ratio to interference power
-            writer.writerow(['Interference Power (dBm)', 'BER'])
+            # Convert each ratio to interference power and create pairs
+            data_pairs = []
             for ratio, ber in zip(ratio_values, ber_values):
                 interf_dbm = ratio_to_interference_power_dbm(
                     ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode
                 )
+                data_pairs.append((interf_dbm, ber))
+
+            # Sort by DECREASING interference power (high on right, low on left)
+            data_pairs.sort(key=lambda x: -x[0])
+            writer.writerow(['Interference Power (dBm)', 'BER'])
+            for interf_dbm, ber in data_pairs:
                 writer.writerow([f'{interf_dbm:.2f}', f'{ber:.6e}'])
         else:
             writer.writerow(['# RESULTS DATA'])
@@ -250,6 +256,13 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 # Avoid log(0)
                 ber_plot = np.where(ber == 0, 1e-6, ber)
                 
+                # Sort dBm data by DECREASING power for intuitive reading
+                is_dbm_mode = metadata.get('Use dBm Mode', 'False').lower() in ['true', '1', 'yes']
+                if is_dbm_mode:
+                    sort_idx = np.argsort(-x_data)
+                    x_data = x_data[sort_idx]
+                    ber_plot = ber_plot[sort_idx]
+
                 # select style so color changes fastest, then marker, then linestyle
                 color = colors[idx % len(colors)]
                 marker = markers[(idx // len(colors)) % len(markers)]
@@ -307,10 +320,12 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
             else:  # SNR
                 xlabel = 'Noise Power (dBm)'
 
-            # Sort by increasing interference power for better visualization
-            sort_idx = np.argsort(x_values)
+            # Sort by DECREASING interference power for intuitive reading
+            # (low interference on left → high interference on right)
+            sort_idx = np.argsort(-x_values)  # Note: negative for descending
             x_values = x_values[sort_idx]
-            ber_plot = np.where(ber_values[sort_idx] == 0, 1e-6, ber_values[sort_idx])
+            ber_values_sorted = ber_values[sort_idx]
+            ber_plot = np.where(ber_values_sorted == 0, 1e-6, ber_values_sorted)
         else:
             # Traditional mode: use ratio values (dB)
             x_values = ratio_values
