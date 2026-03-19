@@ -56,13 +56,16 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config
         writer.writerow(['Burst Symbol Rate', burst_params.burst_symbol_rate])
         writer.writerow(['BS Noise Figure (dB)', phy_params.bs_nf_db])
         writer.writerow(['Temperature (K)', phy_params.temp_k])
-        writer.writerow(['BS TX Power (dBm)', phy_params.bs_tx_power_dbm])
-        writer.writerow(['BS Antenna Gain (dBi)', phy_params.bs_antenna_gain_dbi])
-        writer.writerow(['MS Antenna Gain (dBi)', phy_params.ms_antenna_gain_dbi])
-        writer.writerow(['Path Loss (dB)', phy_params.path_loss_db])
-        writer.writerow(['Channel Bandwidth (kHz)', phy_params.channel_bandwidth_hz / 1000])
         writer.writerow(['Sampling Frequency (Hz)', phy_params.fs_hz])
         writer.writerow(['Traceback Depth', core_params.traceback_depth])
+        # Power parameters (dBm mode)
+        power_params = config.power_parameters
+        writer.writerow(['Use dBm Mode', getattr(config, 'use_dbm_mode', False)])
+        writer.writerow(['BS TX Power (dBm)', power_params.bs_tx_power_dbm])
+        writer.writerow(['BS Antenna Gain (dBi)', power_params.bs_antenna_gain_dbi])
+        writer.writerow(['MS Antenna Gain (dBi)', power_params.ms_antenna_gain_dbi])
+        writer.writerow(['Path Loss (dB)', power_params.path_loss_db])
+        writer.writerow(['Channel Bandwidth (kHz)', power_params.channel_bandwidth_hz / 1000])
         writer.writerow([])  # Empty line for readability
         
         # Data section header
