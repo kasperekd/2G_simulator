@@ -38,9 +38,9 @@ def save_mse_comparison(ratios, mse_ls, mse_lmmse, config):
 def simulate(config):
     start_time = time.perf_counter()
     (
-        num_interferers, channel_mat_file, channel_memory, 
+        seed, snr, ci, num_interferers, channel_mat_file, channel_memory, 
         target_ratio_range_db, modulation_type, calculation_mode, 
-        channel_estimation_method, num_bursts, channel_model, 
+        channel_estimation_method, num_bursts, channel_model, channel_taps,
         traceback_depth, bs_nf_db, temp_k, fs_hz, burst_symbol_rate,
         combining_mode, irc_regularization,
         apply_saic_preprocessing, saic_method, saic_regularization, saic_thermal_noise_variance,

@@ -99,7 +99,7 @@ def single_burst_iteration(args):
         # Use original relative dB-based calculations
         rx_ant1, rx_ant2 = scaling_combining_and_noise(
             s1_rx_ant1, s1_rx_ant2, total_interf_rx_ant1, total_interf_rx_ant2,
-            target_ratio_db, calculation_mode, constant_snr_db=20.0, constant_ci_db=20.0
+            target_ratio_db, calculation_mode, constant_snr_db=snr, constant_ci_db=ci
         )
 
     # 5. RECEIVER: Add noise
