@@ -1,6 +1,7 @@
 {
   "num_interferers": 1,
   "use_pim": false,
+  "use_dbm_mode": false,
   "core_simulation_parameters": {
     "seed": 111,
     "modulation_type": "BPSK",
@@ -37,28 +38,32 @@
   },
   "results_output": {
     "save_results": true,
-    "save_mse_debug": false, 
-    "output_directory": "./results/111.7"
-  }
-  ,
+    "save_mse_debug": false,
+    "output_directory": "./results/noise2"
+  },
   "saic": {
     "apply_saic_preprocessing": false,
     "method": "basic",
     "regularization": 1e-6,
     "thermal_noise_variance": 1e-6
-  }
-  ,
+  },
   "temporal_whitening": {
     "apply_temporal_whitening": false,
     "method": "mahalanobis",
     "regularization": 1e-6,
     "thermal_noise_variance": null,
     "full_burst": true
-  }
-  ,
+  },
   "channel_sweep": {
     "enabled": false,
     "models": ["AWGN", "TU50", "EQ50", "HT100", "RA130"],
     "model_to_file": {}
+  },
+  "power_parameters": {
+    "bs_tx_power_dbm": 43.0,
+    "bs_antenna_gain_dbi": 18.0,
+    "ms_antenna_gain_dbi": 2.0,
+    "path_loss_db": 120.0,
+    "channel_bandwidth_hz": 200000.0
   }
 }
