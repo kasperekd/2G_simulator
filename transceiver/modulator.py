@@ -2,6 +2,7 @@
 # 1. MODULATION CLASS
 # ==============================================================================
 import numpy as np
+from matplotlib import pyplot as plt
 from scipy.special import erfc
 
 def qfunc(x):
@@ -41,14 +42,23 @@ def c0_generate(oversamp, L, BT, f=270.83333e3):
 
 def gmsk_laurent_tx(bits, c0, oversamp):
     bits = np.asarray(bits)
-    bits = 2*bits - 1 
+    bits = 2*bits - 1 + 0j
     b_up = np.zeros(len(bits)*oversamp, dtype=complex)
     b_up[::oversamp] = bits
     s = np.convolve(b_up, c0)
-    return bits, s
+
+    s = s[::oversamp]
+
+    s = s[1:len(s)-1]
+
+    if np.max(s) != 0:
+        s /= np.max(s)
+        s /= np.sqrt(2)
+
+    return bits, np.round(s,2)
 
 oversamp = 16
-L = 4
+L = 1
 BT = 0.3
 N = 1000
 f = 270.83333e3
@@ -82,9 +92,7 @@ class Modulator:
         # TODO: Add 32QAM and a proper GMSK implementation.
         elif self.type == "GMSK":            
             self.bits_per_symbol = 1
-            self.constellation = np.array([
-                [-1, 1]
-            ]) / np.sqrt(2)
+            self.constellation = np.array([-1, 1] / np.sqrt(2))
         else:
             raise ValueError(f"Unsupported modulation type: {self.type}")
         self.num_symbols = len(self.constellation)
@@ -98,6 +106,12 @@ class Modulator:
         if(self.type == "GMSK"):
             c0 = c0_generate(oversamp, L, BT, f)
             symbols, signal = gmsk_laurent_tx(bits, c0, oversamp)
+
+            print(signal)
+            print(bits)
+
+            plt.scatter(np.real(signal), np.imag(signal))
+            plt.show()
             
             return np.array(signal)
         
