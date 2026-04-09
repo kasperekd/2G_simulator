@@ -15,7 +15,7 @@
   "mode_selection": {
     "calculation_mode": "CI",
     "channel_estimation_method": "true",
-    "combining_mode": "MRC",
+    "combining_mode": "ST-IRC",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {

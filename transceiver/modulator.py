@@ -45,17 +45,16 @@ def gmsk_laurent_tx(bits, c0, oversamp):
     bits = 2*bits - 1 + 0j
     b_up = np.zeros(len(bits)*oversamp, dtype=complex)
     b_up[::oversamp] = bits
-    s = np.convolve(b_up, c0)
+    s = np.convolve(b_up, c0, mode="same")
 
     s = s[::oversamp]
 
-    s = s[1:len(s)-1]
-
+    
     if np.max(s) != 0:
         s /= np.max(s)
         s /= np.sqrt(2)
 
-    return bits, np.round(s,2)
+    return np.round(s,2)
 
 oversamp = 16
 L = 1
@@ -105,13 +104,7 @@ class Modulator:
     def modulate(self, bits):
         if(self.type == "GMSK"):
             c0 = c0_generate(oversamp, L, BT, f)
-            symbols, signal = gmsk_laurent_tx(bits, c0, oversamp)
-
-            print(signal)
-            print(bits)
-
-            plt.scatter(np.real(signal), np.imag(signal))
-            plt.show()
+            signal = gmsk_laurent_tx(bits, c0, oversamp)
             
             return np.array(signal)
         

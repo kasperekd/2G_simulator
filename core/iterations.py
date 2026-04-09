@@ -53,6 +53,8 @@ def single_burst_iteration(args):
     # 5. RECEIVER: Add noise
     rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k)
     rx_ant2_noisy = add_thermal_noise(rx_ant2, bs_nf_db, fs_hz, temp_k)
+    
+    
 
     # 6. RECEIVER: Channel Estimation
     if channel_estimation_method == 'true':
