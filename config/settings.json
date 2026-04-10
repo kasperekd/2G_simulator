@@ -1,10 +1,10 @@
 {
   "num_interferers": 1,
   "use_pim": false,
-  "use_dbm_mode": true,
+  "use_dbm_mode": false,
   "core_simulation_parameters": {
     "seed": 111,
-    "modulation_type": "BPSK",
+    "modulation_type": "GMSK",
     "channel_model": "TU50",
     "channel_taps": 6,
     "channel_memory": 3,
@@ -16,9 +16,9 @@
     "traceback_depth": 15
   },
   "mode_selection": {
-    "calculation_mode": "CI",
-    "channel_estimation_method": "true",
-    "combining_mode": "MRC",
+    "calculation_mode": "SNR",
+    "channel_estimation_method": "lmmse",
+    "combining_mode": "EGC",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -37,7 +37,7 @@
   },
   "results_output": {
     "save_results": true,
-    "output_directory": "./results/10/afterTRUE/MRC"
+    "output_directory": "./results/gmsk/snr"
   }
   ,
   "saic": {
@@ -52,7 +52,6 @@
     "regularization": 1e-6,
     "thermal_noise_variance": null,
     "full_burst": true
-  },
   },
   "channel_sweep": {
     "enabled": false,
