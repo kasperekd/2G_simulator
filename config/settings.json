@@ -9,17 +9,16 @@
     "channel_taps": 6,
     "channel_memory": 3,
     "target_ratio_range_db":{
-      "start": 1,
+      "start": -5,
       "stop": 21,
       "step": 2
     },
     "traceback_depth": 15
   },
   "mode_selection": {
-    "calculation_mode": "SNR",
-    "channel_estimation_method": "lmmse",
-    "combining_mode": "SINGLE",
-    "st_irc_method": "direct",
+    "calculation_mode": "CI",
+    "channel_estimation_method": "true",
+    "combining_mode": "MRC",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -38,9 +37,9 @@
   },
   "results_output": {
     "save_results": true,
-    "save_mse_debug": false,
-    "output_directory": "./results/noise2"
-  },
+    "output_directory": "./results/10/afterTRUE/MRC"
+  }
+  ,
   "saic": {
     "apply_saic_preprocessing": false,
     "method": "basic",
@@ -53,6 +52,7 @@
     "regularization": 1e-6,
     "thermal_noise_variance": null,
     "full_burst": true
+  },
   },
   "channel_sweep": {
     "enabled": false,

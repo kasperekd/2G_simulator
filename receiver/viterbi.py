@@ -2,6 +2,7 @@ import numpy as np
 def mlse_viterbi_decode(
     received_symbols, channel_taps, constellation, traceback_depth=15
 ):
+    
     channel_memory = len(channel_taps) - 1
     num_symbols_in_constellation = len(constellation)
 
