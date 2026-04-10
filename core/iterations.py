@@ -93,18 +93,22 @@ def single_burst_iteration(args):
             path_loss_db=path_loss_db,
             noise_figure_db=bs_nf_db,
             bandwidth_hz=channel_bandwidth_hz,
-            temperature_k=temp_k
+            temperature_k=temp_k,
+            constant_snr_db=snr,
+            constant_ci_db=ci
         )
+        rx_ant1_noisy = rx_ant1
+        rx_ant2_noisy = rx_ant2
     else:
         # Use original relative dB-based calculations
         rx_ant1, rx_ant2 = scaling_combining_and_noise(
             s1_rx_ant1, s1_rx_ant2, total_interf_rx_ant1, total_interf_rx_ant2,
             target_ratio_db, calculation_mode, constant_snr_db=snr, constant_ci_db=ci
         )
+        # 5. RECEIVER: Add noise
+        rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k, seed)
+        rx_ant2_noisy = add_thermal_noise(rx_ant2, bs_nf_db, fs_hz, temp_k, seed)
 
-    # 5. RECEIVER: Add noise
-    rx_ant1_noisy = add_thermal_noise(rx_ant1, bs_nf_db, fs_hz, temp_k, seed)
-    rx_ant2_noisy = add_thermal_noise(rx_ant2, bs_nf_db, fs_hz, temp_k, seed)
 
     # rho_antennas = estimate_antenna_correlation(h_true_ant1, h_true_ant2)
     # print(f"[Debug] Antenna correlation: {rho_antennas:.3f}")

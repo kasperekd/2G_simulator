@@ -9,7 +9,7 @@
     "channel_taps": 6,
     "channel_memory": 3,
     "target_ratio_range_db":{
-      "start": -1,
+      "start": 1,
       "stop": 21,
       "step": 2
     },
@@ -18,7 +18,7 @@
   "mode_selection": {
     "calculation_mode": "SNR",
     "channel_estimation_method": "lmmse",
-    "combining_mode": "EGC",
+    "combining_mode": "SINGLE",
     "st_irc_method": "direct",
     "irc_regularization": 1e-6
   },
@@ -27,7 +27,7 @@
     "fs_hz": 1083333.33,
     "temp_k": 300,
     "snr": 15,
-    "ci": 15
+    "ci": 9
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
@@ -63,7 +63,7 @@
     "bs_tx_power_dbm": 43.0,
     "bs_antenna_gain_dbi": 18.0,
     "ms_antenna_gain_dbi": 2.0,
-    "path_loss_db": 145.0,
+    "path_loss_db": 147.0,
     "channel_bandwidth_hz": 200000.0
   }
 }

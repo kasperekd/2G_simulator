@@ -81,7 +81,7 @@ def scaling_combining_and_noise_dbm(
     path_loss_db,
     noise_figure_db,
     bandwidth_hz,
-    temperature_k=290.0,
+    temperature_k=300.0,
     constant_snr_db=15.0,
     constant_ci_db=20.0
 ):
