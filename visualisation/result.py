@@ -252,11 +252,12 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 ber_plot = np.where(ber == 0, 1e-6, ber)
                 
                 # Sort dBm data by INCREASING effective signal power for intuitive reading
-                is_dbm_mode = metadata.get('Use dBm Mode', 'False').lower() in ['true', '1', 'yes']
-                if is_dbm_mode:
+                is_dbm_mode_file = metadata.get('Use dBm Mode', 'False').lower() in ['true', '1', 'yes']
+                if is_dbm_mode_file:
                     sort_idx = np.argsort(x_data)
                     x_data = x_data[sort_idx]
                     ber_plot = ber_plot[sort_idx]
+                    ber = ber[sort_idx] # Update raw ber for threshold finding
 
                 # select style so color changes fastest, then marker, then linestyle
                 color = colors[idx % len(colors)]
@@ -264,6 +265,12 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 linestyle = linestyles[(idx // (len(colors) * len(markers))) % len(linestyles)]
                 plt.semilogy(x_data, ber_plot, marker=marker, linestyle=linestyle,
                            linewidth=2, markersize=6, label=label, color=color, alpha=0.85)
+                
+                # --- Добавление вертикальной линии при использовании dBm ---
+                if use_dbm_mode:
+                    target_ber = 0.06
+                    idx_6_percent = np.argmin(np.abs(ber - target_ber))
+                    plt.axvline(x=x_data[idx_6_percent], color=color, linestyle='--', linewidth=1, alpha=0.6)
                 
             except Exception as e:
                 print(f"Error loading {filepath}: {e}")
@@ -315,13 +322,23 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
             x_values = x_values[sort_idx]
             ber_values_sorted = ber_values[sort_idx]
             ber_plot = np.where(ber_values_sorted == 0, 1e-6, ber_values_sorted)
+            ber_for_line = ber_values_sorted
         else:
             # Traditional mode: use ratio values (dB)
             x_values = ratio_values
             ber_plot = np.where(ber_values == 0, 1e-6, ber_values)
+            ber_for_line = ber_values
             xlabel = f'{config.mode_selection.calculation_mode} (dB)'
 
         plt.semilogy(x_values, ber_plot, 'bo-', linewidth=2, markersize=6, alpha=0.8)
+
+        # --- Добавление вертикальной линии при использовании dBm ---
+        if use_dbm_mode:
+            target_ber = 0.06
+            idx_6_percent = np.argmin(np.abs(ber_for_line - target_ber))
+            x_at_6_percent = x_values[idx_6_percent]
+            plt.axvline(x=x_at_6_percent, color=color, linestyle='--', linewidth=1.5, label='6% BER Threshold')
+            plt.legend(loc='best')
 
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
         title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type} (channel: {config.core_simulation_parameters.channel_model})\n"
@@ -337,4 +354,3 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
     
     plt.tight_layout()
     plt.show()
-
