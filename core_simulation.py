@@ -96,6 +96,7 @@ def simulate(config):
     ber_values = np.zeros(len(target_ratio_range_db))
     mse_ls_values = np.zeros(len(target_ratio_range_db))
     mse_lmmse_values = np.zeros(len(target_ratio_range_db))
+    eta_total_values = np.zeros(len(target_ratio_range_db))
     print("=" * 80)
     print(f"STARTING SIMULATION with {cpu_count()} processes")
     print("SIMULATION CONFIGURATION")
@@ -174,13 +175,14 @@ def simulate(config):
                 bs_tx_power_dbm, bs_antenna_gain_dbi, ms_antenna_gain_dbi, path_loss_db, channel_bandwidth_hz
             )
             
-            ber, avg_mse_ls, avg_mse_lmmse = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
+            ber, avg_mse_ls, avg_mse_lmmse, avg_eta_total = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
             
             ratio_values[i] = target_ratio_db
             ber_values[i] = ber
             mse_ls_values[i] = avg_mse_ls
             mse_lmmse_values[i] = avg_mse_lmmse
-            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f} | MSE(LS)={avg_mse_ls:.4f}, MSE(LMMSE)={avg_mse_lmmse:.4f}")
+            eta_total_values[i] = avg_eta_total
+            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f} | MSE(LS)={avg_mse_ls:.4f}, MSE(LMMSE)={avg_mse_lmmse:.4f} | eta={avg_eta_total:.4f}")
 
 
     elapsed = time.perf_counter() - start_time

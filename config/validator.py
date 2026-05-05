@@ -25,8 +25,8 @@ class TargetRationRangeConfig(BaseModel):
 class CoreParametrsConfig(BaseModel):
     '''Validation for core simulation'''
     seed: int
-    modulation_type: Literal['BPSK',"GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
-    channel_model: Literal["AWGN", "TU50", "EQ50", "HT100", "RA130"]
+    modulation_type: Literal['BPSK', "GMSK", "8PSK", "QPSK", "QAM16", "QAM32"]
+    channel_model: Literal["AWGN", "TU1.5", "TU50", "EQ50", "HT100", "RA130"]
     channel_taps: Literal[6,12] = Field(
         description="channel taps (must be 6 or 12)."
     )
@@ -40,7 +40,7 @@ class CoreParametrsConfig(BaseModel):
 class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI", "SNR"]
     channel_estimation_method: Literal["ls","corr","true","lmmse"] 
-    combining_mode: Literal["IRC", "ST-IRC", "MRC", "EGC", "SAIC", "SINGLE"]
+    combining_mode: Literal["IRC", "ST-IRC", "MRC", "EGC", "SAIC", "SINGLE","AIM"]
     st_irc_method: Literal["direct", "ar-prewhitening"] = Field(
         default="direct",
         description="Method for Space-Time IRC: 'direct' (MMSE weights) or 'ar-prewhitening' (Cholesky noise whitening)."

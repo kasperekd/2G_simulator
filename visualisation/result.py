@@ -267,14 +267,13 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                            linewidth=2, markersize=6, label=label, color=color, alpha=0.85)
                 
                 # --- Добавление вертикальной линии при использовании dBm ---
-                if use_dbm_mode:
-                    target_ber = 0.06
-                    idx_6_percent = np.argmin(np.abs(ber - target_ber))
-                    plt.axvline(x=x_data[idx_6_percent], color=color, linestyle='--', linewidth=1, alpha=0.6)
-                
             except Exception as e:
                 print(f"Error loading {filepath}: {e}")
                 continue
+        if use_dbm_mode:
+            target_ber = 0.06
+            # idx_6_percent = np.argmin(np.abs(ber - target_ber))
+            plt.axhline(y=target_ber, color="black", linestyle='--', linewidth=1, alpha=0.6)
         plt.xlabel(xlabel, fontsize=12)
         plt.ylabel('BER', fontsize=12)
         plt.title('BER Comparison - Multiple Configurations', fontsize=14, fontweight='bold')
@@ -335,9 +334,9 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
         # --- Добавление вертикальной линии при использовании dBm ---
         if use_dbm_mode:
             target_ber = 0.06
-            idx_6_percent = np.argmin(np.abs(ber_for_line - target_ber))
-            x_at_6_percent = x_values[idx_6_percent]
-            plt.axvline(x=x_at_6_percent, color=color, linestyle='--', linewidth=1.5, label='6% BER Threshold')
+            # idx_6_percent = np.argmin(np.abs(ber_for_line - target_ber))
+            # x_at_6_percent = x_values[idx_6_percent]
+            plt.axhline(y=target_ber, color='blue', linestyle='--', linewidth=1.5, label='6% BER Threshold')
             plt.legend(loc='best')
 
         plt.grid(True, which='both', linestyle='--', alpha=0.5)

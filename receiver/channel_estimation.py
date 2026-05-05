@@ -48,3 +48,20 @@ def calculate_mse(h_true, h_est):
     min_len = min(len(h_true), len(h_est))
     err = h_true[:min_len] - h_est[:min_len]
     return np.mean(np.abs(err)**2)
+
+def estimate_interference_metric(r_ts, training_sequence, h_est, L):
+    # Используем матрицу Toeplitz (Можно использовать просто свёртку)
+    X = np.zeros((len(r_ts), L), dtype=complex)
+    for i in range(L):
+        X[i:i+len(training_sequence), i] = training_sequence
+        
+    y_hat = X @ h_est
+
+    e = r_ts - y_hat
+
+    P_signal = np.linalg.norm(y_hat)**2
+    P_interf = np.linalg.norm(e)**2
+
+    eta = P_interf / (P_signal + P_interf + 1e-12)
+
+    return eta, P_signal, P_interf

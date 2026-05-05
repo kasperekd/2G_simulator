@@ -16,9 +16,9 @@
     "traceback_depth": 15
   },
   "mode_selection": {
-    "calculation_mode": "SNR",
+    "calculation_mode": "CI",
     "channel_estimation_method": "lmmse",
-    "combining_mode": "EGC",
+    "combining_mode": "AIM",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -26,7 +26,7 @@
     "fs_hz": 1083333.33,
     "temp_k": 300,
     "snr": 15,
-    "ci": 9
+    "ci": 15
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
@@ -37,7 +37,8 @@
   },
   "results_output": {
     "save_results": true,
-    "output_directory": "./results/gmsk/snr"
+    "save_mse_debug": false, 
+    "output_directory": "./results/yadro/test-sir"
   }
   ,
   "saic": {

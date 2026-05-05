@@ -7,7 +7,7 @@ from transceiver.interference import interference_generation
 
 from receiver.noise import add_thermal_noise
 from receiver.scaling_and_combing import scaling_combining_and_noise, scaling_combining_and_noise_dbm
-from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse
+from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse, estimate_interference_metric
 from receiver.viterbi import mlse_viterbi_decode
 from receiver.DeMUX import extract_data_segments
 
@@ -150,6 +150,22 @@ def single_burst_iteration(args):
         h_est_ant1 = h_true_ant1
         h_est_ant2 = h_true_ant2
 
+    eta_ant1, Ps1, Pi1 = estimate_interference_metric(
+        r_ant1_ts,
+        training_sequence,
+        h_est_ant1,
+        L
+    )
+
+    eta_ant2, Ps2, Pi2 = estimate_interference_metric(
+        r_ant1_ts,
+        training_sequence,
+        h_est_ant1,
+        L
+    )
+
+    eta_total = 0.5 * eta_ant1 + 0.5 * eta_ant2
+
     # 7. RECEIVER: Equalization and Decoding
     rx_ant1_proc = rx_ant1_noisy
     h_est_ant1_proc = h_est_ant1
@@ -210,19 +226,96 @@ def single_burst_iteration(args):
     rx_ant2_for_comb = rx_ant2_proc
     h_est_ant1_for_comb = h_est_ant1_proc
     h_est_ant2_for_comb = h_est_ant2_proc
-    if combining_mode == "IRC":
-        rx_combined, h_est_avg = irc_corrected_process(
-        [rx_ant1_for_comb, rx_ant2_for_comb],
-        [h_est_ant1_for_comb, h_est_ant2_for_comb],
-        training_sequence,
-        shrinkageMethod='oas',
-        shrinkage=0.1,
-        loading_factor=0.28,
+
+    # Комбайнинг метод надо определять относительно eta_total
+    if combining_mode != "AIM":
+        if combining_mode == "IRC":
+            rx_combined, h_est_avg = irc_corrected_process(
+            [rx_ant1_for_comb, rx_ant2_for_comb],
+            [h_est_ant1_for_comb, h_est_ant2_for_comb],
+            training_sequence,
+            shrinkageMethod='oas',
+            shrinkage=0.1,
+            loading_factor=0.28,
+            )
+        elif combining_mode == "ST-IRC":
+            # Используем 1 временной тап (M=1), итого 4 виртуальные антенны
+            method = getattr(config.mode_selection, 'st_irc_method', 'ar-prewhitening')
+            if method == 'ar-prewhitening':
+                rx_combined, h_est_avg = ar_prewhitening_process(
+                    [rx_ant1_for_comb, rx_ant2_for_comb],
+                    [h_est_ant1_for_comb, h_est_ant2_for_comb],
+                    training_sequence,
+                    M_taps=1,
+                    loading_factor=0.1 
+                )
+            elif method == 'direct':
+                rx_combined, h_est_avg = st_irc_process(
+                    [rx_ant1_for_comb, rx_ant2_for_comb],
+                    [h_est_ant1_for_comb, h_est_ant2_for_comb],
+                    training_sequence,
+                    M_taps=1,
+                    shrinkageMethod='oas',
+                    loading_factor=0.28  # Регуляризация важна, т.к. матрица 4x4
+                )
+        elif combining_mode == "MRC":
+            rx_combined, h_est_avg = irc_corrected_process(
+            [rx_ant1_for_comb, rx_ant2_for_comb],
+            [h_est_ant1_for_comb, h_est_ant2_for_comb],
+            training_sequence,
+            shrinkage=0.1,
+            loading_factor=1.0
         )
-    elif combining_mode == "ST-IRC":
-        # Используем 1 временной тап (M=1), итого 4 виртуальные антенны
-        method = getattr(config.mode_selection, 'st_irc_method', 'ar-prewhitening')
-        if method == 'ar-prewhitening':
+            # g1 = h_est_ant1_for_comb[::-1].conj()
+            # g2 = h_est_ant2_for_comb[::-1].conj()
+            # mf1 = np.convolve(rx_ant1_for_comb, g1, mode='same')
+            # mf2 = np.convolve(rx_ant2_for_comb, g2, mode='same')
+            # rx_combined = mf1 + mf2
+            # h_est_avg = h_est_ant1_for_comb + h_est_ant2_for_comb
+        elif combining_mode == "EGC":
+            # ERC MODE
+            rx_combined = (rx_ant1_for_comb + rx_ant2_for_comb) / 2
+            h_est_avg = (h_est_ant1_for_comb + h_est_ant2_for_comb) / 2
+        elif combining_mode == "SINGLE":
+            rx_combined = rx_ant2_for_comb
+            h_est_avg = h_est_ant2_for_comb
+        elif combining_mode == "SAIC":
+
+            proc_ant2, eff_ch2 = single_antenna_processing(
+                rx_ant2_noisy ,
+                h_est_ant2,
+                training_sequence,
+                enable_saic=True,
+                method='bias_removal',
+                regularization=irc_regularization
+            )
+
+            rx_combined = proc_ant2
+            h_est_avg = eff_ch2
+
+        else:
+            raise ValueError(f"Unknown combining mode: {combining_mode}")
+    else:
+        if eta_total < 0.2:
+            combining_mode = "EGC"
+            rx_combined = (rx_ant1_for_comb + rx_ant2_for_comb) / 2
+            h_est_avg = (h_est_ant1_for_comb + h_est_ant2_for_comb) / 2
+
+        elif eta_total < 0.4:
+            combining_mode = "IRC"
+            rx_combined, h_est_avg = irc_corrected_process(
+                [rx_ant1_for_comb, rx_ant2_for_comb],
+                [h_est_ant1_for_comb, h_est_ant2_for_comb],
+                training_sequence,
+                shrinkageMethod='oas',
+                shrinkage=0.1,
+                loading_factor=0.28,
+            )
+
+        elif eta_total < 0.5:
+            combining_mode = "ST-IRC"
+            # Используем 1 временной тап (M=1), итого 4 виртуальные антенны
+            method = 'ar-prewhitening'
             rx_combined, h_est_avg = ar_prewhitening_process(
                 [rx_ant1_for_comb, rx_ant2_for_comb],
                 [h_est_ant1_for_comb, h_est_ant2_for_comb],
@@ -230,7 +323,10 @@ def single_burst_iteration(args):
                 M_taps=1,
                 loading_factor=0.1 
             )
-        elif method == 'direct':
+
+        else:
+            combining_mode = "ST-IRC"
+            method = 'direct'
             rx_combined, h_est_avg = st_irc_process(
                 [rx_ant1_for_comb, rx_ant2_for_comb],
                 [h_est_ant1_for_comb, h_est_ant2_for_comb],
@@ -239,42 +335,6 @@ def single_burst_iteration(args):
                 shrinkageMethod='oas',
                 loading_factor=0.28  # Регуляризация важна, т.к. матрица 4x4
             )
-    elif combining_mode == "MRC":
-        rx_combined, h_est_avg = irc_corrected_process(
-        [rx_ant1_for_comb, rx_ant2_for_comb],
-        [h_est_ant1_for_comb, h_est_ant2_for_comb],
-        training_sequence,
-        shrinkage=0.1,
-        loading_factor=1.0
-    )
-        # g1 = h_est_ant1_for_comb[::-1].conj()
-        # g2 = h_est_ant2_for_comb[::-1].conj()
-        # mf1 = np.convolve(rx_ant1_for_comb, g1, mode='same')
-        # mf2 = np.convolve(rx_ant2_for_comb, g2, mode='same')
-        # rx_combined = mf1 + mf2
-        # h_est_avg = h_est_ant1_for_comb + h_est_ant2_for_comb
-    elif combining_mode == "EGC":
-        # ERC MODE
-        rx_combined = (rx_ant1_for_comb + rx_ant2_for_comb) / 2
-        h_est_avg = (h_est_ant1_for_comb + h_est_ant2_for_comb) / 2
-    elif combining_mode == "SINGLE":
-        rx_combined = rx_ant2_for_comb
-        h_est_avg = h_est_ant2_for_comb
-    elif combining_mode == "SAIC":
-
-        proc_ant2, eff_ch2 = single_antenna_processing(
-            rx_ant2_noisy ,
-            h_est_ant2,
-            training_sequence,
-            enable_saic=True,
-            method='bias_removal',
-            regularization=irc_regularization
-        )
-
-        rx_combined = proc_ant2
-        h_est_avg = eff_ch2
-    else:
-        raise ValueError(f"Unknown combining mode: {combining_mode}")
 
     mlse_input = rx_combined[:len(tx_burst) + L - 1]
     decoded_indices = mlse_viterbi_decode(mlse_input, h_est_avg, modem.constellation, traceback_depth)
@@ -285,4 +345,4 @@ def single_burst_iteration(args):
     # 8. BER CALCULATION
     errors = np.sum(data_bits != decoded_bits[:len(data_bits)])
     bits = len(data_bits)
-    return errors, bits, mse_ls, mse_lmmse
+    return errors, bits, mse_ls, mse_lmmse, eta_total

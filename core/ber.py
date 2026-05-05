@@ -5,7 +5,7 @@ import itertools
 def calculate_ber(pool, base_args, num_bursts, target_ratio_db):
     def run_batch(count):
         if count <= 0:
-            return 0, 0, 0.0, 0.0
+            return 0, 0, 0.0, 0.0, 0.0
         
         chunk_size = max(1, count // (cpu_count() * 4))
         
@@ -17,11 +17,13 @@ def calculate_ber(pool, base_args, num_bursts, target_ratio_db):
         batch_sum_mse_ls = sum(r[2] for r in results)
         batch_sum_mse_lmmse = sum(r[3] for r in results)
         
-        return batch_errors, batch_bits, batch_sum_mse_ls, batch_sum_mse_lmmse
+        batch_sum_eta_total = sum(r[4] for r in results)
+
+        return batch_errors, batch_bits, batch_sum_mse_ls, batch_sum_mse_lmmse, batch_sum_eta_total
 
     # 1. Pilot run
     test_iterations = 25
-    total_errors, total_bits, total_mse_ls, total_mse_lmmse = run_batch(test_iterations)
+    total_errors, total_bits, total_mse_ls, total_mse_lmmse, eta_total = run_batch(test_iterations)
     
     current_ber = total_errors / total_bits if total_bits > 0 else 0.5
 
@@ -36,15 +38,19 @@ def calculate_ber(pool, base_args, num_bursts, target_ratio_db):
     remaining_bursts = target_bursts - test_iterations
 
     if remaining_bursts > 0:
-        add_err, add_bits, add_mse_ls, add_mse_lmmse = run_batch(remaining_bursts)
+        add_err, add_bits, add_mse_ls, add_mse_lmmse, add_eta_total = run_batch(remaining_bursts)
         total_errors += add_err
         total_bits += add_bits
         total_mse_ls += add_mse_ls
         total_mse_lmmse += add_mse_lmmse
+        eta_total += add_eta_total
+
 
     final_ber = total_errors / total_bits if total_bits > 0 else 0.5
     
     final_avg_mse_ls = total_mse_ls / target_bursts
     final_avg_mse_lmmse = total_mse_lmmse / target_bursts
 
-    return final_ber, final_avg_mse_ls, final_avg_mse_lmmse
+    final_avg_eta_total = eta_total / target_bursts
+
+    return final_ber, final_avg_mse_ls, final_avg_mse_lmmse, final_avg_eta_total
