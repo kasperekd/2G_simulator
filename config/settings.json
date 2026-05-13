@@ -18,7 +18,8 @@
   "mode_selection": {
     "calculation_mode": "CI",
     "channel_estimation_method": "lmmse",
-    "combining_mode": "AIM",
+    "combining_mode": "ST-IRC",
+    "interference_estimation_method": "SP",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -26,7 +27,7 @@
     "fs_hz": 1083333.33,
     "temp_k": 300,
     "snr": 15,
-    "ci": 15
+    "ci": 9
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
@@ -38,7 +39,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/yadro/test-sir"
+    "output_directory": "./results/yadro/test-sir/new_method"
   }
   ,
   "saic": {

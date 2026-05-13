@@ -7,7 +7,8 @@ from transceiver.interference import interference_generation
 
 from receiver.noise import add_thermal_noise
 from receiver.scaling_and_combing import scaling_combining_and_noise, scaling_combining_and_noise_dbm
-from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse, estimate_interference_metric
+from receiver.channel_estimation import estimate_channel_ls, estimate_channel_lmmse, calculate_mse
+from receiver.interference_estimation import estimate_interference_metric, interference_projection, signal_projection, subspace_based_sir
 from receiver.viterbi import mlse_viterbi_decode
 from receiver.DeMUX import extract_data_segments
 
@@ -117,8 +118,9 @@ def single_burst_iteration(args):
     ts_start_idx = len(original_data_symbols) // 2 + len(tail_symbols)
     ts_end_idx = ts_start_idx + len(training_sequence)
     
-    r_ant1_ts = rx_ant1_noisy[ts_start_idx: ts_end_idx + L - 1]
-    
+    r_ant1_ts = rx_ant1_noisy[ts_start_idx: ts_end_idx]
+    # r_ant1_ts = rx_ant1_noisy[ts_start_idx: ts_end_idx + L - 1]
+
     mse_ls = 0.0
     mse_lmmse = 0.0
     
@@ -150,19 +152,55 @@ def single_burst_iteration(args):
         h_est_ant1 = h_true_ant1
         h_est_ant2 = h_true_ant2
 
-    eta_ant1, Ps1, Pi1 = estimate_interference_metric(
-        r_ant1_ts,
-        training_sequence,
-        h_est_ant1,
-        L
-    )
+    if config.mode_selection.interference_estimation_method == "hybrid":
+        eta_ant1, Ps1, Pi1 = estimate_interference_metric(
+            r_ant1_ts,
+            training_sequence,
+            h_est_ant1,
+            L
+        )
 
-    eta_ant2, Ps2, Pi2 = estimate_interference_metric(
-        r_ant1_ts,
-        training_sequence,
-        h_est_ant1,
-        L
-    )
+        eta_ant2, Ps2, Pi2 = estimate_interference_metric(
+            r_ant1_ts,
+            training_sequence,
+            h_est_ant1,
+            L
+        )
+    elif config.mode_selection.interference_estimation_method == "IP":
+            eta_ant1, Ps1, Pi1 = interference_projection(
+                r_ant1_ts,
+                training_sequence,
+            )
+
+            eta_ant2, Ps2, Pi2 = interference_projection(
+                r_ant1_ts,
+                training_sequence,
+            )
+    elif config.mode_selection.interference_estimation_method == "SP":
+        eta_ant1, Ps1, Pi1 = signal_projection(
+            r_ant1_ts,
+            training_sequence,
+            L
+        )
+
+        eta_ant2, Ps2, Pi2 = signal_projection(
+            r_ant1_ts,
+            training_sequence,
+            L
+        )
+
+    # elif config.mode_selection.interference_estimation_method == "SB":
+    #     eta_ant1, Ps1, Pi1 = subspace_based_sir(
+    #         r_ant1_ts,
+    #         training_sequence,
+    #         L
+    #     )
+
+    #     eta_ant2, Ps2, Pi2 = subspace_based_sir(
+    #         r_ant1_ts,
+    #         training_sequence,
+    #         L
+    #     )
 
     eta_total = 0.5 * eta_ant1 + 0.5 * eta_ant2
 

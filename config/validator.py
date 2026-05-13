@@ -41,6 +41,7 @@ class ModeSelectionConfig(BaseModel):
     calculation_mode: Literal["SINR","CI", "SNR"]
     channel_estimation_method: Literal["ls","corr","true","lmmse"] 
     combining_mode: Literal["IRC", "ST-IRC", "MRC", "EGC", "SAIC", "SINGLE","AIM"]
+    interference_estimation_method: Literal["IP", "SP", "hybrid", "SB"]
     st_irc_method: Literal["direct", "ar-prewhitening"] = Field(
         default="direct",
         description="Method for Space-Time IRC: 'direct' (MMSE weights) or 'ar-prewhitening' (Cholesky noise whitening)."
