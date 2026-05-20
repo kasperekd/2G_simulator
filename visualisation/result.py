@@ -11,7 +11,7 @@ from receiver.power_calc import (
     calculate_thermal_noise_power_dbm
 )
 
-def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config: Any, output_path: str) -> str:
+def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, sir_values: np.ndarray, config: Any, output_path: str) -> str:
     """
     Save simulation results and configuration parameters to CSV file.
     
@@ -113,7 +113,7 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config
 
             # Convert each ratio to effective signal power and create pairs
             data_pairs = []
-            for ratio, ber in zip(ratio_values, ber_values):
+            for ratio, ber, sir in zip(ratio_values, ber_values, sir_values):
                 effective_dbm = ratio_to_effective_signal_power_dbm(
                     ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode
                 )
@@ -126,17 +126,17 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, config
                 writer.writerow([f'{effective_dbm:.2f}', f'{ber:.6e}'])
         else:
             writer.writerow(['# RESULTS DATA'])
-            writer.writerow([f'{mode_params.calculation_mode} (dB)', 'BER'])
+            writer.writerow([f'{mode_params.calculation_mode} (dB)', 'BER', 'SIR'])
 
             # Write data
-            for ratio, ber in zip(ratio_values, ber_values):
-                writer.writerow([f'{ratio:.2f}', f'{ber:.6e}'])
+            for ratio, ber, sir in zip(ratio_values, ber_values, sir_values):
+                writer.writerow([f'{ratio:.2f}', f'{ber:.6e}', f'{sir:.2f}'])
 
     print(f"Results saved to: {filepath}")
     return str(filepath)
 
 
-def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, Any]]:
     """
     Load simulation results and metadata from CSV file.
     
@@ -150,6 +150,7 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[s
     metadata = {}
     x_values = []
     ber_values = []
+    sir_values = []
     reading_data = False
     
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -172,8 +173,10 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[s
                 try:
                     x = float(row[0])
                     ber = float(row[1])
+                    sir = float(row[2]) if len(row) > 2 else np.nan
                     x_values.append(x)
                     ber_values.append(ber)
+                    sir_values.append(sir)
                 except (ValueError, IndexError):
                     continue
             else:
@@ -183,19 +186,17 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[s
                     value = row[1]
                     metadata[key] = value
     
-    return np.array(x_values), np.array(ber_values), metadata
+    return np.array(x_values), np.array(ber_values), np.array(sir_values), metadata
 
-
-def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None, config: Any = None,
-                 comparison_files: Optional[List[str]] = None):
+def plot_results(
+    ratio_values: np.ndarray = None, 
+    ber_values: np.ndarray = None, 
+    sir_values: np.ndarray = None, 
+    config: Any = None,
+    comparison_files: Optional[List[str]] = None
+):
     """
-    Plot BER results. Can plot a single result or compare multiple result files.
-    
-    Args:
-        ratio_values: Array of target ratio values (dB) for single plot
-        ber_values: Array of BER values for single plot
-        config: SystemConfig object for single plot
-        comparison_files: List of CSV file paths to compare
+    Plot BER results. SIR comparison/plot is always generated if data is available.
     """
     plt.figure(figsize=(12, 7))
     colors = [
@@ -203,78 +204,56 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
         'tab:pink','tab:gray','tab:olive','tab:cyan','black','orange','purple',
         '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b'
     ]
-
-    markers = [
-        'o','s','^','v','D','p','*','h','+','x','1','2','3','4','|','_' 
-    ]
+    markers = ['o','s','^','v','D','p','*','h','+','x','1','2','3','4','|','_']
     linestyles = ['-', '--', '-.', ':']
     
+    sir_plot_data = []
+    use_dbm_mode_global = False
+    first_x_for_ref = None
+
     if comparison_files:
-        # Comparison mode: load and plot multiple CSV files
-        from itertools import product
-        combos = list(product(colors, markers, linestyles))
-
-        # Determine if all files use dBm mode
-        metadata_list = []
-        for filepath in comparison_files:
-            try:
-                _, _, metadata = load_results_from_csv(filepath)
-                metadata_list.append(metadata)
-            except Exception as e:
-                print(f"Error loading {filepath}: {e}")
-                continue
-
-        # Check if using dBm mode
-        use_dbm_mode_list = [m.get('Use dBm Mode', 'False') for m in metadata_list]
-        use_dbm_mode = any(v.lower() in ['true', '1', 'yes'] for v in use_dbm_mode_list)
-        calc_mode = metadata_list[0].get('Calculation Mode', 'CI') if metadata_list else 'CI'
-
-        # Set xlabel based on mode
-        if use_dbm_mode:
-                xlabel = 'Effective Signal Power (dBm)'
-        else:
-            xlabel = f'{calc_mode} (dB)'
-
         for idx, filepath in enumerate(comparison_files):
             try:
-                x_data, ber, metadata = load_results_from_csv(filepath)
-
-                # Create label from metadata
+                x_data, ber, sir, metadata = load_results_from_csv(filepath)
                 modulation = metadata.get('Modulation Type', 'Unknown')
                 combining = metadata.get('Combining Mode', 'Unknown')
                 est_method = metadata.get('Channel Estimation Method', 'Unknown')
                 channel = metadata.get('Channel Model', 'Unknown')
+                sir_method = metadata.get('Interference Estimation Method', 'Unknow')
+                label_ber = f"{modulation} ({combining}, {est_method}, {channel})"
+                label_sir = f"{modulation} ({combining}, {est_method}, {channel}, {sir_method})"
 
-                # Include channel model in the legend label to aid comparisons
-                label = f"{modulation} ({combining}, {est_method}, {channel})"
-                
-                # Avoid log(0)
                 ber_plot = np.where(ber == 0, 1e-6, ber)
                 
-                # Sort dBm data by INCREASING effective signal power for intuitive reading
-                is_dbm_mode_file = metadata.get('Use dBm Mode', 'False').lower() in ['true', '1', 'yes']
-                if is_dbm_mode_file:
+                is_dbm = metadata.get('Use dBm Mode', 'False').lower() in ['true', '1', 'yes']
+                if is_dbm:
+                    use_dbm_mode_global = True
                     sort_idx = np.argsort(x_data)
                     x_data = x_data[sort_idx]
                     ber_plot = ber_plot[sort_idx]
-                    ber = ber[sort_idx] # Update raw ber for threshold finding
-
-                # select style so color changes fastest, then marker, then linestyle
+                    if sir is not None:
+                        sir = sir[sort_idx]
+                else:
+                    if sir is not None and len(sir) > 0:
+                        if first_x_for_ref is None:
+                            first_x_for_ref = x_data.copy()
+                        sir_plot_data.append((x_data, sir, label_sir, idx))
+                
                 color = colors[idx % len(colors)]
                 marker = markers[(idx // len(colors)) % len(markers)]
                 linestyle = linestyles[(idx // (len(colors) * len(markers))) % len(linestyles)]
-                plt.semilogy(x_data, ber_plot, marker=marker, linestyle=linestyle,
-                           linewidth=2, markersize=6, label=label, color=color, alpha=0.85)
                 
-                # --- Добавление вертикальной линии при использовании dBm ---
+                plt.semilogy(x_data, ber_plot, marker=marker, linestyle=linestyle,
+                             linewidth=2, markersize=6, label=label_ber, color=color, alpha=0.85)
             except Exception as e:
-                print(f"Error loading {filepath}: {e}")
+                print(f"Error processing {filepath}: {e}")
                 continue
-        if use_dbm_mode:
-            target_ber = 0.06
-            # idx_6_percent = np.argmin(np.abs(ber - target_ber))
-            plt.axhline(y=target_ber, color="black", linestyle='--', linewidth=1, alpha=0.6)
-        plt.xlabel(xlabel, fontsize=12)
+                
+        xlabel_ber = 'Effective Signal Power (dBm)' if use_dbm_mode_global else 'SNR (dB)'
+        if use_dbm_mode_global:
+            plt.axhline(y=0.06, color="black", linestyle='--', linewidth=1, alpha=0.6)
+            
+        plt.xlabel(xlabel_ber, fontsize=12)
         plt.ylabel('BER', fontsize=12)
         plt.title('BER Comparison - Multiple Configurations', fontsize=14, fontweight='bold')
         plt.legend(loc='best', fontsize=10)
@@ -282,20 +261,16 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
         plt.ylim([1e-5, 1])
         
     else:
-        # Single plot mode
         if ratio_values is None or ber_values is None or config is None:
             print("Error: For single plot, provide ratio_values, ber_values, and config")
             return
         
-        # Check if dBm mode is enabled
-        use_dbm_mode = getattr(config, 'use_dbm_mode', False)
-
-        if use_dbm_mode:
-            # Convert ratio values to effective signal power in dBm for plotting
+        use_dbm_mode_global = getattr(config, 'use_dbm_mode', False)
+        
+        if use_dbm_mode_global:
             power_params = config.power_parameters
             phy_params = config.physical_layer_parameters
             mode_params = config.mode_selection
-
             rx_signal_dbm = calculate_received_power_dbm(
                 power_params.bs_tx_power_dbm,
                 power_params.bs_antenna_gain_dbi,
@@ -307,49 +282,55 @@ def plot_results(ratio_values: np.ndarray = None, ber_values: np.ndarray = None,
                 phy_params.temp_k,
                 phy_params.bs_nf_db
             )
-
-            # Convert each ratio to effective signal power
             x_values = np.array([
-                ratio_to_effective_signal_power_dbm(ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode)
-                for ratio in ratio_values
+                ratio_to_effective_signal_power_dbm(r, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode)
+                for r in ratio_values
             ])
-
-            xlabel = 'Effective Signal Power (dBm)'
-
-            # Sort by INCREASING effective signal power (low on left, high on right)
+            xlabel_ber = 'Effective Signal Power (dBm)'
             sort_idx = np.argsort(x_values)
             x_values = x_values[sort_idx]
-            ber_values_sorted = ber_values[sort_idx]
-            ber_plot = np.where(ber_values_sorted == 0, 1e-6, ber_values_sorted)
-            ber_for_line = ber_values_sorted
+            ber_plot = np.where(ber_values[sort_idx] == 0, 1e-6, ber_values[sort_idx])
+            
         else:
-            # Traditional mode: use ratio values (dB)
             x_values = ratio_values
             ber_plot = np.where(ber_values == 0, 1e-6, ber_values)
-            ber_for_line = ber_values
-            xlabel = f'{config.mode_selection.calculation_mode} (dB)'
+            xlabel_ber = f'{config.mode_selection.calculation_mode} (dB)'
+            
+            if sir_values is not None and len(sir_values) > 0:
+                first_x_for_ref = x_values.copy()
+                sir_plot_data.append((x_values, sir_values, "Measured SIR (dB)", -1))
 
         plt.semilogy(x_values, ber_plot, 'bo-', linewidth=2, markersize=6, alpha=0.8)
-
-        # --- Добавление вертикальной линии при использовании dBm ---
-        if use_dbm_mode:
-            target_ber = 0.06
-            # idx_6_percent = np.argmin(np.abs(ber_for_line - target_ber))
-            # x_at_6_percent = x_values[idx_6_percent]
-            plt.axhline(y=target_ber, color='blue', linestyle='--', linewidth=1.5, label='6% BER Threshold')
+        if use_dbm_mode_global:
+            plt.axhline(y=0.06, color='blue', linestyle='--', linewidth=1.5, label='6% BER Threshold')
             plt.legend(loc='best')
-
+            
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
-        title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type} (channel: {config.core_simulation_parameters.channel_model})\n"
-        title += (
-            f"(Estimation: {config.mode_selection.channel_estimation_method}, "
-            f"Combining: {config.mode_selection.combining_mode}, "
-            f"Interferers: {config.num_interferers})"
-        )
+        title = f"BER vs {config.mode_selection.calculation_mode} for {config.core_simulation_parameters.modulation_type}\n"
+        title += f"(Est: {config.mode_selection.channel_estimation_method}, Comb: {config.mode_selection.combining_mode}, Int: {config.num_interferers})"
         plt.title(title, fontsize=12, fontweight='bold')
-        plt.xlabel(xlabel, fontsize=12)
+        plt.xlabel(xlabel_ber, fontsize=12)
         plt.ylabel('BER', fontsize=12)
         plt.ylim([1e-5, 1])
-    
-    plt.tight_layout()
+        plt.tight_layout()
+
+    if sir_plot_data:
+        plt.figure(figsize=(12, 7))
+        for x, y, label, orig_idx in sir_plot_data:
+            color = colors[orig_idx % len(colors)]
+            marker = markers[(orig_idx // len(colors)) % len(markers)]
+            linestyle = linestyles[(orig_idx // (len(colors) * len(markers))) % len(linestyles)]
+            
+            plt.plot(x, y, marker=marker, linestyle=linestyle, color=color, linewidth=2, markersize=6, label=label)
+            
+        plt.plot(first_x_for_ref, first_x_for_ref, 'b--', linewidth=1.5, label='SNR Reference (1:1)')
+            
+        plt.title('SIR vs Target Value', fontsize=14, fontweight='bold')
+        plt.xlabel('Value (dB)' if not use_dbm_mode_global else 'Power (dBm)', fontsize=12)
+        plt.ylabel('SIR (dB)', fontsize=12)
+        plt.grid(True, which='both', linestyle='--', alpha=0.5)
+        plt.legend(loc='best', fontsize=11)
+        plt.tight_layout()
+
     plt.show()
+

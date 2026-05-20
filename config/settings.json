@@ -5,7 +5,7 @@
   "core_simulation_parameters": {
     "seed": 111,
     "modulation_type": "GMSK",
-    "channel_model": "TU50",
+    "channel_model": "EQ50",
     "channel_taps": 6,
     "channel_memory": 3,
     "target_ratio_range_db":{
@@ -16,10 +16,10 @@
     "traceback_depth": 15
   },
   "mode_selection": {
-    "calculation_mode": "CI",
+    "calculation_mode": "SNR",
     "channel_estimation_method": "lmmse",
     "combining_mode": "ST-IRC",
-    "interference_estimation_method": "SP",
+    "interference_estimation_method": "hybrid",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -27,7 +27,7 @@
     "fs_hz": 1083333.33,
     "temp_k": 300,
     "snr": 15,
-    "ci": 9
+    "ci": 40
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
@@ -39,7 +39,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/yadro/test-sir/new_method"
+    "output_directory": "./results/yadro/test-sir/test/no_ci"
   }
   ,
   "saic": {

@@ -96,7 +96,7 @@ def simulate(config):
     ber_values = np.zeros(len(target_ratio_range_db))
     mse_ls_values = np.zeros(len(target_ratio_range_db))
     mse_lmmse_values = np.zeros(len(target_ratio_range_db))
-    eta_total_values = np.zeros(len(target_ratio_range_db))
+    sir_total_values = np.zeros(len(target_ratio_range_db))
     print("=" * 80)
     print(f"STARTING SIMULATION with {cpu_count()} processes")
     print("SIMULATION CONFIGURATION")
@@ -108,6 +108,7 @@ def simulate(config):
     print(f"Calculation Mode:           {calculation_mode}")
     print(f"Channel Estimation Method:  {channel_estimation_method}")
     print(f"Combining Mode:             {combining_mode}")
+    print(f"Interference Estimation Method:             {config.mode_selection.interference_estimation_method}")
     if combining_mode == "IRC":
         print(f"IRC Regularization:         {irc_regularization}")
     if combining_mode == "ST-IRC":
@@ -181,8 +182,8 @@ def simulate(config):
             ber_values[i] = ber
             mse_ls_values[i] = avg_mse_ls
             mse_lmmse_values[i] = avg_mse_lmmse
-            eta_total_values[i] = avg_eta_total
-            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f} | MSE(LS)={avg_mse_ls:.4f}, MSE(LMMSE)={avg_mse_lmmse:.4f} | eta={avg_eta_total:.4f}")
+            sir_total_values[i] = avg_eta_total
+            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f} | MSE(LS)={avg_mse_ls:.4f}, MSE(LMMSE)={avg_mse_lmmse:.4f} | SIR={avg_eta_total:.4f}")
 
 
     elapsed = time.perf_counter() - start_time
@@ -193,7 +194,7 @@ def simulate(config):
     if config.results_output.save_mse_debug:
         save_mse_comparison(ratio_values, mse_ls_values, mse_lmmse_values, config)
 
-    return np.array(ratio_values), np.array(ber_values)
+    return np.array(ratio_values), np.array(ber_values), np.array(sir_total_values)
 
 
 def main():
@@ -278,19 +279,19 @@ def main():
                 cfg_local = config.copy(deep=True)
                 cfg_local.core_simulation_parameters = cfg_local.core_simulation_parameters.copy(update={"channel_model": model})
 
-                ratio_values, ber_values = simulate(cfg_local)
+                ratio_values, ber_values, sir_values = simulate(cfg_local)
 
                 if cfg_local.results_output.save_results:
-                    csv_filepath = save_results_to_csv(ratio_values, ber_values, cfg_local, cfg_local.results_output.output_directory)
+                    csv_filepath = save_results_to_csv(ratio_values, ber_values, sir_values, cfg_local, cfg_local.results_output.output_directory)
                     results_paths.append(csv_filepath)
                     print(f"CSV file saved: {csv_filepath}")
                 if should_plot:
-                    results_for_plot.append((ratio_values, ber_values, cfg_local))
+                    results_for_plot.append((ratio_values, ber_values, sir_values, cfg_local))
 
             if should_plot and results_for_plot:
                 # plot all results together
-                for r, b, c in results_for_plot:
-                    plot_results(r, b, c)
+                for r, b, s, c in results_for_plot:
+                    plot_results(r, b, s, c)
 
             print("Sweep completed.")
             if results_paths:
@@ -327,7 +328,7 @@ def main():
 
         return
     # --------------------------------------------------------------------
-    ratio_values, ber_values = simulate(config)
+    ratio_values, ber_values, sir_values = simulate(config)
 
     print('\nFinal BER Results:')
     print("-" * 80)
@@ -338,10 +339,10 @@ def main():
     # Save results if enabled
     if config.results_output.save_results:
         output_path = config.results_output.output_directory
-        csv_filepath = save_results_to_csv(ratio_values, ber_values, config, output_path)
+        csv_filepath = save_results_to_csv(ratio_values, ber_values, sir_values, config, output_path)
         print(f"CSV file saved: {csv_filepath}")
     
-    plot_results(ratio_values, ber_values, config)
+    plot_results(ratio_values, ber_values, sir_values, config)
 
 if __name__ == '__main__':
     main()

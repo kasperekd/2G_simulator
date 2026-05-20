@@ -17,8 +17,8 @@ def estimate_interference_metric(r_ts, training_sequence, h_est, L):
     P_signal = np.linalg.norm(y_hat)**2
     P_interf = np.linalg.norm(e)**2
 
-    eta = P_interf / (P_signal + P_interf + 1e-12)
-    # eta = 10 * np.log10(P_signal / P_interf + 1e-12)
+    # eta = P_interf / (P_signal + P_interf + 1e-12)
+    eta = 10 * np.log10(P_signal / P_interf + 1e-12)
     return eta, P_signal, P_interf
 
 def interference_projection(received_signal, training_sequence):
@@ -33,9 +33,9 @@ def interference_projection(received_signal, training_sequence):
     signal_power = np.sum(np.abs(estimated_signal)**2)
     interference_power = np.sum(np.abs(residual))
 
-    # sir_db = 10 * np.log10(signal_power / interference_power + 1e-12)
+    sir_db = 10 * np.log10(signal_power / interference_power + 1e-12)
 
-    sir_db = interference_power / (interference_power + signal_power + 1e-12)
+    # sir_db = interference_power / (interference_power + signal_power + 1e-12)
 
     return sir_db, estimated_signal, residual
 
@@ -68,7 +68,8 @@ def signal_projection(received_signal, training_sequence, channel_order):
     P_int = np.linalg.norm(residual)**2
 
     # Метрика (от 0 до 1)
-    eta = P_int / (P_sig + P_int + 1e-12)
+    # eta = P_int / (P_sig + P_int + 1e-12)
+    eta = 10 * np.log10(P_sig / P_int + 1e-12)
 
     return eta, estimated_signal, residual
 
