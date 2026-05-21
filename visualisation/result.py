@@ -54,6 +54,7 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, sir_va
         writer.writerow(['Calculation Mode', mode_params.calculation_mode])
         writer.writerow(['Channel Estimation Method', mode_params.channel_estimation_method])
         writer.writerow(['Combining Mode', mode_params.combining_mode])
+        writer.writerow(['Interference Estimation Method:', mode_params.interference_estimation_method])
         if mode_params.combining_mode == "IRC":
             writer.writerow(['IRC Regularization', mode_params.irc_regularization])
         writer.writerow(['Number of Interferers', config.num_interferers])
@@ -219,7 +220,7 @@ def plot_results(
                 combining = metadata.get('Combining Mode', 'Unknown')
                 est_method = metadata.get('Channel Estimation Method', 'Unknown')
                 channel = metadata.get('Channel Model', 'Unknown')
-                sir_method = metadata.get('Interference Estimation Method', 'Unknow')
+                sir_method = metadata.get('Interference Estimation Method:', 'Unknow')
                 label_ber = f"{modulation} ({combining}, {est_method}, {channel})"
                 label_sir = f"{modulation} ({combining}, {est_method}, {channel}, {sir_method})"
 
@@ -322,11 +323,15 @@ def plot_results(
             linestyle = linestyles[(orig_idx // (len(colors) * len(markers))) % len(linestyles)]
             
             plt.plot(x, y, marker=marker, linestyle=linestyle, color=color, linewidth=2, markersize=6, label=label)
-            
-        plt.plot(first_x_for_ref, first_x_for_ref, 'b--', linewidth=1.5, label='SNR Reference (1:1)')
-            
-        plt.title('SIR vs Target Value', fontsize=14, fontweight='bold')
-        plt.xlabel('Value (dB)' if not use_dbm_mode_global else 'Power (dBm)', fontsize=12)
+
+        # Значение SNR
+        # plt.plot(first_x_for_ref, first_x_for_ref, 'b--', linewidth=1.5, label='SNR Reference (1:1)')
+        
+        # Значение константного шума
+        plt.axhline(y=-9, color="black", linestyle='--', linewidth=1, alpha=0.6)
+
+        plt.title('SIR vs SNR step', fontsize=14, fontweight='bold')
+        plt.xlabel('SNR step (dB)' if not use_dbm_mode_global else 'Power (dBm)', fontsize=12)
         plt.ylabel('SIR (dB)', fontsize=12)
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
         plt.legend(loc='best', fontsize=11)

@@ -46,6 +46,7 @@ def scaling_combining_and_noise(
         inf_ant2 = inf_ant2 * scaling_factor_inf
         
         final_noise_power = constant_noise_power
+        #final_noise_power = signal_power / target_ratio_linear
 
     elif calculation_mode == 'SNR':
         constant_ci_linear = 10**(constant_ci_db / 10)

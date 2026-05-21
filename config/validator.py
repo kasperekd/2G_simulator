@@ -158,8 +158,8 @@ class ChannelSweepConfig(BaseModel):
         default=False,
         description="Enable automatic sweep across multiple channel models."
     )
-    models: List[Literal['AWGN', 'TU50', 'EQ50', 'HT100', 'RA130']] = Field(
-        default_factory=lambda: ['AWGN', 'TU50', 'EQ50', 'HT100', 'RA130'],
+    models: List[Literal['TU1.5', 'TU50', 'EQ50', 'HT100', 'RA130']] = Field(
+        default_factory=lambda: ['TU1.5', 'TU50', 'EQ50', 'HT100', 'RA130'],
         description="List of channel model names to sweep over when enabled."
     )
     model_to_file: Optional[Dict[str, str]] = Field(

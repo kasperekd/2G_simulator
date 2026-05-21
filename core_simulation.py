@@ -312,12 +312,12 @@ def main():
         print("Automatic channel sweep enabled in config. Running sweep for models:")
         for model in models_to_run:
             print(f" - {model}")
-            cfg_local = config.copy(deep=True)
-            cfg_local.core_simulation_parameters = cfg_local.core_simulation_parameters.copy(update={"channel_model": model})
+            cfg_local = config.model_copy(deep=True)
+            cfg_local.core_simulation_parameters = cfg_local.core_simulation_parameters.model_copy(update={"channel_model": model})
 
-            ratio_values, ber_values = simulate(cfg_local)
+            ratio_values, ber_values, sir_values = simulate(cfg_local)
             if cfg_local.results_output.save_results:
-                csv_filepath = save_results_to_csv(ratio_values, ber_values, cfg_local, cfg_local.results_output.output_directory)
+                csv_filepath = save_results_to_csv(ratio_values, ber_values, sir_values, cfg_local, cfg_local.results_output.output_directory)
                 results_paths.append(csv_filepath)
 
         print("Sweep finished.")
