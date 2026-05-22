@@ -96,7 +96,8 @@ def simulate(config):
     ber_values = np.zeros(len(target_ratio_range_db))
     mse_ls_values = np.zeros(len(target_ratio_range_db))
     mse_lmmse_values = np.zeros(len(target_ratio_range_db))
-    sir_total_values = np.zeros(len(target_ratio_range_db))
+    measured_sinr_total_values = np.zeros(len(target_ratio_range_db))
+    target_sinr_total_values = np.zeros(len(target_ratio_range_db))
     print("=" * 80)
     print(f"STARTING SIMULATION with {cpu_count()} processes")
     print("SIMULATION CONFIGURATION")
@@ -176,14 +177,15 @@ def simulate(config):
                 bs_tx_power_dbm, bs_antenna_gain_dbi, ms_antenna_gain_dbi, path_loss_db, channel_bandwidth_hz
             )
             
-            ber, avg_mse_ls, avg_mse_lmmse, avg_eta_total = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
+            ber, avg_mse_ls, avg_mse_lmmse, avg_eta_total, avg_target_sinr_total = calculate_ber(pool, base_args, num_bursts, target_ratio_db)
             
             ratio_values[i] = target_ratio_db
             ber_values[i] = ber
             mse_ls_values[i] = avg_mse_ls
             mse_lmmse_values[i] = avg_mse_lmmse
-            sir_total_values[i] = avg_eta_total
-            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f} | MSE(LS)={avg_mse_ls:.4f}, MSE(LMMSE)={avg_mse_lmmse:.4f} | SIR={avg_eta_total:.4f}")
+            measured_sinr_total_values[i] = avg_eta_total
+            target_sinr_total_values[i] = avg_target_sinr_total
+            print(f"  {calculation_mode} = {target_ratio_db:5.1f} dB, BER = {ber:.6f} | MSE(LS)={avg_mse_ls:.4f}, MSE(LMMSE)={avg_mse_lmmse:.4f} | measured_sinr={avg_eta_total:.4f}")
 
 
     elapsed = time.perf_counter() - start_time
@@ -194,7 +196,7 @@ def simulate(config):
     if config.results_output.save_mse_debug:
         save_mse_comparison(ratio_values, mse_ls_values, mse_lmmse_values, config)
 
-    return np.array(ratio_values), np.array(ber_values), np.array(sir_total_values)
+    return np.array(ratio_values), np.array(ber_values), np.array(measured_sinr_total_values), np.array(target_sinr_total_values)
 
 
 def main():
@@ -279,19 +281,19 @@ def main():
                 cfg_local = config.copy(deep=True)
                 cfg_local.core_simulation_parameters = cfg_local.core_simulation_parameters.copy(update={"channel_model": model})
 
-                ratio_values, ber_values, sir_values = simulate(cfg_local)
+                ratio_values, ber_values, measured_sinr_values, target_sinr_values = simulate(cfg_local)
 
                 if cfg_local.results_output.save_results:
-                    csv_filepath = save_results_to_csv(ratio_values, ber_values, sir_values, cfg_local, cfg_local.results_output.output_directory)
+                    csv_filepath = save_results_to_csv(ratio_values, ber_values, measured_sinr_values, cfg_local, cfg_local.results_output.output_directory)
                     results_paths.append(csv_filepath)
                     print(f"CSV file saved: {csv_filepath}")
                 if should_plot:
-                    results_for_plot.append((ratio_values, ber_values, sir_values, cfg_local))
+                    results_for_plot.append((ratio_values, ber_values, measured_sinr_values, target_sinr_values, cfg_local))
 
             if should_plot and results_for_plot:
                 # plot all results together
-                for r, b, s, c in results_for_plot:
-                    plot_results(r, b, s, c)
+                for r, b, s, si, c in results_for_plot:
+                    plot_results(r, b, s, si, c)
 
             print("Sweep completed.")
             if results_paths:
@@ -315,9 +317,9 @@ def main():
             cfg_local = config.model_copy(deep=True)
             cfg_local.core_simulation_parameters = cfg_local.core_simulation_parameters.model_copy(update={"channel_model": model})
 
-            ratio_values, ber_values, sir_values = simulate(cfg_local)
+            ratio_values, ber_values, measured_sinr_values, target_sinr_values = simulate(cfg_local)
             if cfg_local.results_output.save_results:
-                csv_filepath = save_results_to_csv(ratio_values, ber_values, sir_values, cfg_local, cfg_local.results_output.output_directory)
+                csv_filepath = save_results_to_csv(ratio_values, ber_values, measured_sinr_values, target_sinr_values, cfg_local, cfg_local.results_output.output_directory)
                 results_paths.append(csv_filepath)
 
         print("Sweep finished.")
@@ -328,21 +330,20 @@ def main():
 
         return
     # --------------------------------------------------------------------
-    ratio_values, ber_values, sir_values = simulate(config)
+    ratio_values, ber_values, measured_sinr_values, target_sinr_values = simulate(config)
 
     print('\nFinal BER Results:')
     print("-" * 80)
     for r, ber in zip(ratio_values, ber_values):
         print(f'{config.mode_selection.calculation_mode}={r:4.1f} dB => BER={ber:.6f}')
     print("-" * 80)
-    
     # Save results if enabled
     if config.results_output.save_results:
         output_path = config.results_output.output_directory
-        csv_filepath = save_results_to_csv(ratio_values, ber_values, sir_values, config, output_path)
+        csv_filepath = save_results_to_csv(ratio_values, ber_values, measured_sinr_values, target_sinr_values, config, output_path)
         print(f"CSV file saved: {csv_filepath}")
     
-    plot_results(ratio_values, ber_values, sir_values, config)
+    plot_results(ratio_values, ber_values, measured_sinr_values, target_sinr_values, config)
 
 if __name__ == '__main__':
     main()

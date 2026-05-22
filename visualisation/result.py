@@ -11,7 +11,7 @@ from receiver.power_calc import (
     calculate_thermal_noise_power_dbm
 )
 
-def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, sir_values: np.ndarray, config: Any, output_path: str) -> str:
+def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, measured_sinr_values: np.ndarray, target_sinr_values: np.ndarray, config: Any, output_path: str) -> str:
     """
     Save simulation results and configuration parameters to CSV file.
     
@@ -114,7 +114,7 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, sir_va
 
             # Convert each ratio to effective signal power and create pairs
             data_pairs = []
-            for ratio, ber, sir in zip(ratio_values, ber_values, sir_values):
+            for ratio, ber, measured_sinr, target_sinr in zip(ratio_values, ber_values, measured_sinr_values, target_sinr_values):
                 effective_dbm = ratio_to_effective_signal_power_dbm(
                     ratio, rx_signal_dbm, rx_noise_dbm, mode_params.calculation_mode
                 )
@@ -127,11 +127,11 @@ def save_results_to_csv(ratio_values: np.ndarray, ber_values: np.ndarray, sir_va
                 writer.writerow([f'{effective_dbm:.2f}', f'{ber:.6e}'])
         else:
             writer.writerow(['# RESULTS DATA'])
-            writer.writerow([f'{mode_params.calculation_mode} (dB)', 'BER', 'SIR'])
+            writer.writerow([f'{mode_params.calculation_mode} (dB)', 'BER', 'measured_sinr', 'target_sinr'])
 
             # Write data
-            for ratio, ber, sir in zip(ratio_values, ber_values, sir_values):
-                writer.writerow([f'{ratio:.2f}', f'{ber:.6e}', f'{sir:.2f}'])
+            for ratio, ber, measured_sinr, target_sinr in zip(ratio_values, ber_values, measured_sinr_values, target_sinr_values):
+                writer.writerow([f'{ratio:.2f}', f'{ber:.6e}', f'{measured_sinr:.2f}', f'{target_sinr:.2f}'])
 
     print(f"Results saved to: {filepath}")
     return str(filepath)
@@ -151,7 +151,8 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, np.nda
     metadata = {}
     x_values = []
     ber_values = []
-    sir_values = []
+    measured_sinr_values = []
+    target_sinr_values = []
     reading_data = False
     
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -168,16 +169,18 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, np.nda
                 continue
             
             if reading_data:
-                if row[0] in ['CI', 'SINR', 'Effective Signal'] or row[0].endswith('(dB)') or row[0].endswith('(dBm)'):
+                if row[0] in ['CI', 'target_sinr', 'Effective Signal'] or row[0].endswith('(dB)') or row[0].endswith('(dBm)'):
                     # This is the header, skip it
                     continue
                 try:
                     x = float(row[0])
                     ber = float(row[1])
-                    sir = float(row[2]) if len(row) > 2 else np.nan
+                    measured_sinr = float(row[2]) if len(row) > 2 else np.nan
+                    target_sinr = float(row[3]) if len(row) > 3 else np.nan
                     x_values.append(x)
                     ber_values.append(ber)
-                    sir_values.append(sir)
+                    measured_sinr_values.append(measured_sinr)
+                    target_sinr_values.append(target_sinr)
                 except (ValueError, IndexError):
                     continue
             else:
@@ -187,17 +190,18 @@ def load_results_from_csv(filepath: str) -> Tuple[np.ndarray, np.ndarray, np.nda
                     value = row[1]
                     metadata[key] = value
     
-    return np.array(x_values), np.array(ber_values), np.array(sir_values), metadata
+    return np.array(x_values), np.array(ber_values), np.array(measured_sinr_values), np.array(target_sinr_values), metadata
 
 def plot_results(
     ratio_values: np.ndarray = None, 
     ber_values: np.ndarray = None, 
-    sir_values: np.ndarray = None, 
+    measured_sinr_values: np.ndarray = None,
+    target_sinr_values: np.ndarray = None, 
     config: Any = None,
     comparison_files: Optional[List[str]] = None
 ):
     """
-    Plot BER results. SIR comparison/plot is always generated if data is available.
+    Plot BER results. SINR plot shows all measured curves + one average target curve.
     """
     plt.figure(figsize=(12, 7))
     colors = [
@@ -208,22 +212,22 @@ def plot_results(
     markers = ['o','s','^','v','D','p','*','h','+','x','1','2','3','4','|','_']
     linestyles = ['-', '--', '-.', ':']
     
-    sir_plot_data = []
+    measured_sinr_plot_data = []  # Хранит кривые измеренного SINR
+    all_target_sinr = []          # Хранит массивы целевого SINR для усреднения
     use_dbm_mode_global = False
-    first_x_for_ref = None
-
+    x_ref = None                  # Базовая ось X для синхронизации
+    
     if comparison_files:
         for idx, filepath in enumerate(comparison_files):
             try:
-                x_data, ber, sir, metadata = load_results_from_csv(filepath)
+                x_data, ber, measured_sinr, target_sinr, metadata = load_results_from_csv(filepath)
                 modulation = metadata.get('Modulation Type', 'Unknown')
                 combining = metadata.get('Combining Mode', 'Unknown')
                 est_method = metadata.get('Channel Estimation Method', 'Unknown')
                 channel = metadata.get('Channel Model', 'Unknown')
                 sir_method = metadata.get('Interference Estimation Method:', 'Unknow')
                 label_ber = f"{modulation} ({combining}, {est_method}, {channel})"
-                label_sir = f"{modulation} ({combining}, {est_method}, {channel}, {sir_method})"
-
+                label_measured_sinr = f"{modulation} ({combining}, {est_method}, {channel}, {sir_method})"
                 ber_plot = np.where(ber == 0, 1e-6, ber)
                 
                 is_dbm = metadata.get('Use dBm Mode', 'False').lower() in ['true', '1', 'yes']
@@ -232,13 +236,16 @@ def plot_results(
                     sort_idx = np.argsort(x_data)
                     x_data = x_data[sort_idx]
                     ber_plot = ber_plot[sort_idx]
-                    if sir is not None:
-                        sir = sir[sort_idx]
-                else:
-                    if sir is not None and len(sir) > 0:
-                        if first_x_for_ref is None:
-                            first_x_for_ref = x_data.copy()
-                        sir_plot_data.append((x_data, sir, label_sir, idx))
+                    if measured_sinr is not None: measured_sinr = measured_sinr[sort_idx]
+                    if target_sinr is not None: target_sinr = target_sinr[sort_idx]
+                    
+                if measured_sinr is not None and len(measured_sinr) > 0:
+                    if x_ref is None:
+                        x_ref = x_data.copy()
+                    measured_sinr_plot_data.append((x_data, measured_sinr, label_measured_sinr, idx))
+                    
+                if target_sinr is not None and len(target_sinr) > 0:
+                    all_target_sinr.append(target_sinr)
                 
                 color = colors[idx % len(colors)]
                 marker = markers[(idx // len(colors)) % len(markers)]
@@ -297,10 +304,10 @@ def plot_results(
             ber_plot = np.where(ber_values == 0, 1e-6, ber_values)
             xlabel_ber = f'{config.mode_selection.calculation_mode} (dB)'
             
-            if sir_values is not None and len(sir_values) > 0:
-                first_x_for_ref = x_values.copy()
-                sir_plot_data.append((x_values, sir_values, "Measured SIR (dB)", -1))
-
+            if measured_sinr_values is not None and len(measured_sinr_values) > 0:
+                x_ref = x_values.copy()
+                measured_sinr_plot_data.append((x_values, measured_sinr_values, "Measured SINR (dB)", -1))
+                
         plt.semilogy(x_values, ber_plot, 'bo-', linewidth=2, markersize=6, alpha=0.8)
         if use_dbm_mode_global:
             plt.axhline(y=0.06, color='blue', linestyle='--', linewidth=1.5, label='6% BER Threshold')
@@ -315,27 +322,25 @@ def plot_results(
         plt.ylim([1e-5, 1])
         plt.tight_layout()
 
-    if sir_plot_data:
+    if measured_sinr_plot_data:
         plt.figure(figsize=(12, 7))
-        for x, y, label, orig_idx in sir_plot_data:
+    
+        for x, y, label, orig_idx in measured_sinr_plot_data:
             color = colors[orig_idx % len(colors)]
             marker = markers[(orig_idx // len(colors)) % len(markers)]
             linestyle = linestyles[(orig_idx // (len(colors) * len(markers))) % len(linestyles)]
-            
             plt.plot(x, y, marker=marker, linestyle=linestyle, color=color, linewidth=2, markersize=6, label=label)
 
-        # Значение SNR
-        # plt.plot(first_x_for_ref, first_x_for_ref, 'b--', linewidth=1.5, label='SNR Reference (1:1)')
-        
-        # Значение константного шума
-        plt.axhline(y=-9, color="black", linestyle='--', linewidth=1, alpha=0.6)
-
-        plt.title('SIR vs SNR step', fontsize=14, fontweight='bold')
+        if all_target_sinr:
+            avg_target = np.mean(all_target_sinr, axis=0)
+            plt.plot(x_ref, avg_target, linestyle='--', linewidth=2.5, color='black', alpha=0.8, 
+                     label='Average Target SINR (dB)')
+            
+        plt.title('SINR vs SNR step', fontsize=14, fontweight='bold')
         plt.xlabel('SNR step (dB)' if not use_dbm_mode_global else 'Power (dBm)', fontsize=12)
-        plt.ylabel('SIR (dB)', fontsize=12)
+        plt.ylabel('SINR (dB)', fontsize=12)
         plt.grid(True, which='both', linestyle='--', alpha=0.5)
         plt.legend(loc='best', fontsize=11)
         plt.tight_layout()
-
     plt.show()
 

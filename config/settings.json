@@ -18,8 +18,8 @@
   "mode_selection": {
     "calculation_mode": "SNR",
     "channel_estimation_method": "lmmse",
-    "combining_mode": "EGC",
-    "interference_estimation_method": "IP",
+    "combining_mode": "ST-IRC",
+    "interference_estimation_method": "hybrid",
     "irc_regularization": 1e-6
   },
   "physical_layer_parameters": {
@@ -27,7 +27,7 @@
     "fs_hz": 1083333.33,
     "temp_k": 300,
     "snr": 15,
-    "ci": 40
+    "ci": 9
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
@@ -39,7 +39,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/compare/egc/ip/no_ci/"
+    "output_directory": "./results/compare_3/st-irc/hybrid/ci/"
   }
   ,
   "saic": {
@@ -56,7 +56,7 @@
     "full_burst": true
   },
   "channel_sweep": {
-    "enabled": true,
+    "enabled": false,
     "models": ["TU1.5", "TU50", "EQ50", "HT100", "RA130"],
     "model_to_file": {}
   },

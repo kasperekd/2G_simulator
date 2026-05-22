@@ -68,7 +68,18 @@ def scaling_combining_and_noise(
     rx_ant1_noisy = sig_ant1 + inf_ant1 + noise_ant1
     rx_ant2_noisy = sig_ant2 + inf_ant2 + noise_ant2
 
-    return rx_ant1_noisy, rx_ant2_noisy
+    signal_power_final = np.mean(np.abs(sig_ant1)**2 + np.abs(sig_ant2)**2)
+    interf_power_final = np.mean(np.abs(inf_ant1)**2 + np.abs(inf_ant2)**2)
+    noise_power_final = np.mean(np.abs(noise_ant1)**2 + np.abs(noise_ant2)**2)
+
+    # Если SINR 
+    sinr_linear = signal_power_final / (interf_power_final + noise_power_final)
+    
+    # Если SIR
+    # sinr_linear = signal_power_final / (interf_power_final)
+    target_sinr_db = 10 * np.log10(sinr_linear)
+
+    return rx_ant1_noisy, rx_ant2_noisy, target_sinr_db
 
 
 def scaling_combining_and_noise_dbm(

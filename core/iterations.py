@@ -102,7 +102,7 @@ def single_burst_iteration(args):
         rx_ant2_noisy = rx_ant2
     else:
         # Use original relative dB-based calculations
-        rx_ant1, rx_ant2 = scaling_combining_and_noise(
+        rx_ant1, rx_ant2, sinr_db = scaling_combining_and_noise(
             s1_rx_ant1, s1_rx_ant2, total_interf_rx_ant1, total_interf_rx_ant2,
             target_ratio_db, calculation_mode, constant_snr_db=snr, constant_ci_db=ci
         )
@@ -153,56 +153,56 @@ def single_burst_iteration(args):
         h_est_ant2 = h_true_ant2
 
     if config.mode_selection.interference_estimation_method == "hybrid":
-        eta_ant1, Ps1, Pi1 = estimate_interference_metric(
+        measured_sinr_ant1, Ps1, Pi1 = estimate_interference_metric(
             r_ant1_ts,
             training_sequence,
             h_est_ant1,
             L
         )
 
-        eta_ant2, Ps2, Pi2 = estimate_interference_metric(
+        measured_sinr_ant2, Ps2, Pi2 = estimate_interference_metric(
             r_ant1_ts,
             training_sequence,
             h_est_ant1,
             L
         )
     elif config.mode_selection.interference_estimation_method == "IP":
-            eta_ant1, Ps1, Pi1 = interference_projection(
+            measured_sinr_ant1, Ps1, Pi1 = interference_projection(
                 r_ant1_ts,
                 training_sequence,
             )
 
-            eta_ant2, Ps2, Pi2 = interference_projection(
+            measured_sinr_ant2, Ps2, Pi2 = interference_projection(
                 r_ant1_ts,
                 training_sequence,
             )
     elif config.mode_selection.interference_estimation_method == "SP":
-        eta_ant1, Ps1, Pi1 = signal_projection(
+        measured_sinr_ant1, Ps1, Pi1 = signal_projection(
             r_ant1_ts,
             training_sequence,
             L
         )
 
-        eta_ant2, Ps2, Pi2 = signal_projection(
+        measured_sinr_ant2, Ps2, Pi2 = signal_projection(
             r_ant1_ts,
             training_sequence,
             L
         )
 
     # elif config.mode_selection.interference_estimation_method == "SB":
-    #     eta_ant1, Ps1, Pi1 = subspace_based_sir(
+    #     measured_sinr_ant1, Ps1, Pi1 = subspace_based_sir(
     #         r_ant1_ts,
     #         training_sequence,
     #         L
     #     )
 
-    #     eta_ant2, Ps2, Pi2 = subspace_based_sir(
+    #     measured_sinr_ant2, Ps2, Pi2 = subspace_based_sir(
     #         r_ant1_ts,
     #         training_sequence,
     #         L
     #     )
 
-    eta_total = 0.5 * eta_ant1 + 0.5 * eta_ant2
+    measured_sinr_total = 0.5 * measured_sinr_ant1 + 0.5 * measured_sinr_ant2
 
     # 7. RECEIVER: Equalization and Decoding
     rx_ant1_proc = rx_ant1_noisy
@@ -265,7 +265,7 @@ def single_burst_iteration(args):
     h_est_ant1_for_comb = h_est_ant1_proc
     h_est_ant2_for_comb = h_est_ant2_proc
 
-    # Комбайнинг метод надо определять относительно eta_total
+    # Комбайнинг метод надо определять относительно measured_sinr_total
     if combining_mode != "AIM":
         if combining_mode == "IRC":
             rx_combined, h_est_avg = irc_corrected_process(
@@ -334,12 +334,12 @@ def single_burst_iteration(args):
         else:
             raise ValueError(f"Unknown combining mode: {combining_mode}")
     else:
-        if eta_total < 0.2:
+        if measured_sinr_total < 0.2:
             combining_mode = "EGC"
             rx_combined = (rx_ant1_for_comb + rx_ant2_for_comb) / 2
             h_est_avg = (h_est_ant1_for_comb + h_est_ant2_for_comb) / 2
 
-        elif eta_total < 0.4:
+        elif measured_sinr_total < 0.4:
             combining_mode = "IRC"
             rx_combined, h_est_avg = irc_corrected_process(
                 [rx_ant1_for_comb, rx_ant2_for_comb],
@@ -350,7 +350,7 @@ def single_burst_iteration(args):
                 loading_factor=0.28,
             )
 
-        elif eta_total < 0.5:
+        elif measured_sinr_total < 0.5:
             combining_mode = "ST-IRC"
             # Используем 1 временной тап (M=1), итого 4 виртуальные антенны
             method = 'ar-prewhitening'
@@ -383,4 +383,4 @@ def single_burst_iteration(args):
     # 8. BER CALCULATION
     errors = np.sum(data_bits != decoded_bits[:len(data_bits)])
     bits = len(data_bits)
-    return errors, bits, mse_ls, mse_lmmse, eta_total
+    return errors, bits, mse_ls, mse_lmmse, measured_sinr_total, sinr_db
