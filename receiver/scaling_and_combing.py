@@ -1,85 +1,168 @@
 import numpy as np
-from receiver.power_calc import (
-    calculate_received_power_dbm,
-    calculate_thermal_noise_power_dbm,
-    dbm_to_watts
-)
+
 
 def scaling_combining_and_noise(
-    s1_rx_ant1, s1_rx_ant2, 
-    interf_rx_ant1, interf_rx_ant2, 
-    target_ratio_db, 
-    calculation_mode, 
-    constant_snr_db=15.0, 
-    constant_ci_db=20.0   
+    s1_rx_ant1,
+    s1_rx_ant2,
+    interf_rx_ant1,
+    interf_rx_ant2,
+    target_ratio_db,
+    calculation_mode,
+    constant_snr_db=15.0,
+    constant_ci_db=20.0
 ):
-    
-    signal_power = np.mean(np.abs(s1_rx_ant1)**2 + np.abs(s1_rx_ant2)**2)
-    if signal_power < 1e-20: signal_power = 1e-20
+    signal_power = np.mean(
+        np.abs(s1_rx_ant1) ** 2 +
+        np.abs(s1_rx_ant2) ** 2
+    )
 
-    current_interf_power = np.mean(np.abs(interf_rx_ant1)**2 + np.abs(interf_rx_ant2)**2)
-    if current_interf_power < 1e-20: current_interf_power = 1e-20
+    interf_power = np.mean(
+        np.abs(interf_rx_ant1) ** 2 +
+        np.abs(interf_rx_ant2) ** 2
+    )
 
-    sig_ant1, sig_ant2 = s1_rx_ant1, s1_rx_ant2
-    inf_ant1, inf_ant2 = interf_rx_ant1, interf_rx_ant2
+    signal_power = max(signal_power, 1e-20)
+    interf_power = max(interf_power, 1e-20)
 
-    target_ratio_linear = 10**(target_ratio_db / 10)
+    sig_ant1 = np.copy(s1_rx_ant1)
+    sig_ant2 = np.copy(s1_rx_ant2)
 
-    constant_snr_linear = 10**(constant_snr_db / 10)
-    constant_noise_power = signal_power / constant_snr_linear
+    inf_ant1 = np.copy(interf_rx_ant1)
+    inf_ant2 = np.copy(interf_rx_ant2)
 
-    if calculation_mode == 'CI':
-        required_interf_power = signal_power / target_ratio_linear
-        scaling_factor_inf = np.sqrt(required_interf_power / current_interf_power)
-        inf_ant1 = inf_ant1 * scaling_factor_inf
-        inf_ant2 = inf_ant2 * scaling_factor_inf
-        
-        final_noise_power = constant_noise_power
+    if calculation_mode == "SINR+":
 
-    elif calculation_mode == 'SINR':
-        required_interf_power = (signal_power / target_ratio_linear) - constant_noise_power
-        if required_interf_power < 0:
-            required_interf_power = 1e-20
-            
-        scaling_factor_inf = np.sqrt(required_interf_power / current_interf_power)
-        inf_ant1 = inf_ant1 * scaling_factor_inf
-        inf_ant2 = inf_ant2 * scaling_factor_inf
-        
-        final_noise_power = constant_noise_power
-        #final_noise_power = signal_power / target_ratio_linear
+        signal_target_power = 10 ** ((-70.0 - 30.0) / 10.0)
+        interf_target_power = 10 ** ((-90.0 - 30.0) / 10.0)
 
-    elif calculation_mode == 'SNR':
-        constant_ci_linear = 10**(constant_ci_db / 10)
-        required_interf_power = signal_power / constant_ci_linear
-        scaling_factor_inf = np.sqrt(required_interf_power / current_interf_power)
-        inf_ant1 = inf_ant1 * scaling_factor_inf
-        inf_ant2 = inf_ant2 * scaling_factor_inf
+        signal_scale = np.sqrt(
+            signal_target_power / signal_power
+        )
 
-        final_noise_power = signal_power / target_ratio_linear
+        interf_scale = np.sqrt(
+            interf_target_power / interf_power
+        )
+
+        sig_ant1 *= signal_scale
+        sig_ant2 *= signal_scale
+
+        inf_ant1 *= interf_scale
+        inf_ant2 *= interf_scale
+
+        noise_ant1 = np.zeros_like(sig_ant1)
+        noise_ant2 = np.zeros_like(sig_ant2)
 
     else:
-        raise ValueError("Must be 'CI', 'SNR' or 'SINR'")
 
-    noise_std = np.sqrt(final_noise_power / 4)
+        target_ratio_linear = 10 ** (target_ratio_db / 10)
 
-    noise_ant1 = noise_std * (np.random.randn(*sig_ant1.shape) + 1j * np.random.randn(*sig_ant1.shape))
-    noise_ant2 = noise_std * (np.random.randn(*sig_ant2.shape) + 1j * np.random.randn(*sig_ant2.shape))
+        constant_snr_linear = 10 ** (constant_snr_db / 10)
 
-    rx_ant1_noisy = sig_ant1 + inf_ant1 + noise_ant1
-    rx_ant2_noisy = sig_ant2 + inf_ant2 + noise_ant2
+        constant_noise_power = (
+            signal_power / constant_snr_linear
+        )
 
-    signal_power_final = np.mean(np.abs(sig_ant1)**2 + np.abs(sig_ant2)**2)
-    interf_power_final = np.mean(np.abs(inf_ant1)**2 + np.abs(inf_ant2)**2)
-    noise_power_final = np.mean(np.abs(noise_ant1)**2 + np.abs(noise_ant2)**2)
+        if calculation_mode == "CI":
 
-    # Если SINR 
-    sinr_linear = signal_power_final / (interf_power_final + noise_power_final)
-    
-    # Если SIR
-    # sinr_linear = signal_power_final / (interf_power_final)
-    target_sinr_db = 10 * np.log10(sinr_linear)
+            required_interf_power = (
+                signal_power / target_ratio_linear
+            )
 
-    return rx_ant1_noisy, rx_ant2_noisy, target_sinr_db
+            scaling_factor_inf = np.sqrt(
+                required_interf_power / interf_power
+            )
+
+            inf_ant1 *= scaling_factor_inf
+            inf_ant2 *= scaling_factor_inf
+
+            final_noise_power = constant_noise_power
+
+        elif calculation_mode == "SINR":
+
+            required_interf_power = (
+                signal_power / target_ratio_linear
+            ) - constant_noise_power
+
+            required_interf_power = max(
+                required_interf_power,
+                1e-20
+            )
+
+            scaling_factor_inf = np.sqrt(
+                required_interf_power / interf_power
+            )
+
+            inf_ant1 *= scaling_factor_inf
+            inf_ant2 *= scaling_factor_inf
+
+            final_noise_power = constant_noise_power
+
+        elif calculation_mode == "SNR":
+
+            constant_ci_linear = (
+                10 ** (constant_ci_db / 10)
+            )
+
+            required_interf_power = (
+                signal_power / constant_ci_linear
+            )
+
+            scaling_factor_inf = np.sqrt(
+                required_interf_power / interf_power
+            )
+
+            inf_ant1 *= scaling_factor_inf
+            inf_ant2 *= scaling_factor_inf
+
+            final_noise_power = (
+                signal_power / target_ratio_linear
+            )
+
+        else:
+            raise ValueError(
+                "calculation_mode must be "
+                "'CI', 'SINR', 'SINR+' or 'SNR'"
+            )
+
+        noise_std = np.sqrt(final_noise_power / 4)
+
+        noise_ant1 = noise_std * (
+            np.random.randn(*sig_ant1.shape)
+            + 1j * np.random.randn(*sig_ant1.shape)
+        )
+
+        noise_ant2 = noise_std * (
+            np.random.randn(*sig_ant2.shape)
+            + 1j * np.random.randn(*sig_ant2.shape)
+        )
+
+    rx_ant1 = sig_ant1 + inf_ant1 + noise_ant1
+    rx_ant2 = sig_ant2 + inf_ant2 + noise_ant2
+
+    signal_power_final = np.mean(
+        np.abs(sig_ant1) ** 2 +
+        np.abs(sig_ant2) ** 2
+    )
+
+    interf_power_final = np.mean(
+        np.abs(inf_ant1) ** 2 +
+        np.abs(inf_ant2) ** 2
+    )
+
+    noise_power_final = np.mean(
+        np.abs(noise_ant1) ** 2 +
+        np.abs(noise_ant2) ** 2
+    )
+
+    sinr_linear = signal_power_final / (
+        interf_power_final +
+        noise_power_final +
+        1e-20
+    )
+
+    sinr_db = 10 * np.log10(sinr_linear)
+
+    return rx_ant1, rx_ant2, sinr_db
 
 
 def scaling_combining_and_noise_dbm(

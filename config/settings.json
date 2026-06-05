@@ -56,7 +56,7 @@
     "full_burst": true
   },
   "channel_sweep": {
-    "enabled": false,
+    "enabled": true,
     "models": ["TU1.5", "TU50", "EQ50", "HT100", "RA130"],
     "model_to_file": {}
   },
