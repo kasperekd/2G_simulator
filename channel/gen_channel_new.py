@@ -338,14 +338,15 @@ def compute_acf_stable(x):
 #     frequency = 1800e6
 #     velocity_kmh = float(channel_model[2:])
 #     frequency_s = 1083.333e3
-#     rng = np.random.default_rng(42)
+#     # rng = np.random.default_rng(42)
 #     H, tau = generate_cir(
 #         channel_model=channel_model,
 #         channel_taps=12,
 #         frequency_c=frequency,
 #         frequency_s=frequency_s,
-#         rng=rng,
-#         num_sinusoids=2048*2
+#         seed=111,
+#         num_sinusoids=50,
+#         num_time_steps=40000
 #     )
 #     print(H.shape)
 #     # ГРАФИКИ
@@ -430,7 +431,7 @@ def compute_acf_stable(x):
 
 #     fig.colorbar(surf, ax=ax, label="Power (dB)")
 #     # elev — угол над горизонтом (высота), azim — поворот вокруг оси Z
-#     ax.view_init(elev=30, azim=-60) 
+#     ax.view_init(elev=30, azim=-120) 
 
 #     # ACF
 #     from scipy.special import j0

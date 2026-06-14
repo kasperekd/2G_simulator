@@ -1,5 +1,9 @@
 import numpy as np
-
+from receiver.power_calc import (
+    calculate_received_power_dbm,
+    calculate_thermal_noise_power_dbm,
+    dbm_to_watts
+)
 
 def scaling_combining_and_noise(
     s1_rx_ant1,
@@ -31,26 +35,26 @@ def scaling_combining_and_noise(
     inf_ant2 = np.copy(interf_rx_ant2)
 
     if calculation_mode == "SINR+":
-
-        signal_target_power = 10 ** ((-70.0 - 30.0) / 10.0)
+        # Линейно отображаем target_ratio_db из [-5, 21] в [-119, -70] дБм
+        signal_target_dbm = -119.0 + (49.0 / 26.0) * (target_ratio_db - (-5.0))
+        
+        signal_target_power = 10 ** ((signal_target_dbm - 30.0) / 10.0)
+        
+        # interference
         interf_target_power = 10 ** ((-90.0 - 30.0) / 10.0)
-
-        signal_scale = np.sqrt(
-            signal_target_power / signal_power
-        )
-
-        interf_scale = np.sqrt(
-            interf_target_power / interf_power
-        )
-
+        
+        signal_scale = np.sqrt(signal_target_power / signal_power)
+        # interf_scale = np.sqrt(interf_target_power / interf_power)
+        interf_scale = 0
+        
         sig_ant1 *= signal_scale
         sig_ant2 *= signal_scale
-
         inf_ant1 *= interf_scale
         inf_ant2 *= interf_scale
-
+        
         noise_ant1 = np.zeros_like(sig_ant1)
         noise_ant2 = np.zeros_like(sig_ant2)
+
 
     else:
 

@@ -16,7 +16,7 @@
     "traceback_depth": 15
   },
   "mode_selection": {
-    "calculation_mode": "SNR",
+    "calculation_mode": "SINR+",
     "channel_estimation_method": "lmmse",
     "combining_mode": "ST-IRC",
     "interference_estimation_method": "hybrid",
@@ -27,7 +27,7 @@
     "fs_hz": 1083333.33,
     "temp_k": 300,
     "snr": 15,
-    "ci": 9
+    "ci": 40
   },
   "burst_structure_parameters": {
     "burst_symbol_rate": "normal",
@@ -39,7 +39,7 @@
   "results_output": {
     "save_results": true,
     "save_mse_debug": false, 
-    "output_directory": "./results/compare_3/st-irc/hybrid/ci/"
+    "output_directory": "./results/compare_4/st-irc/no_ci/hybrid"
   }
   ,
   "saic": {
